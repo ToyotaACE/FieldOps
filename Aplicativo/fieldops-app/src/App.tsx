@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   Activity, AlertTriangle, BarChart3, Bell, CalendarDays, CheckCircle2,
   ChevronDown, ClipboardCheck, ClipboardList, Clock3, Download, FileBarChart,
-  Gauge, HardHat, LayoutDashboard, LogOut, Menu, Moon, PackageCheck,
+  Gauge, HardHat, LayoutDashboard, LogOut, Menu, Moon, PackageCheck, FileText,
   Plus, QrCode, Search, Settings, ShieldCheck, Sun, Users, Wrench, X,
   Building2, CalendarCheck, Filter, MapPin, MoreHorizontal, Pencil, Save,
   SlidersHorizontal, Trash2, Mail, LockKeyhole, UserRound, ArrowRight, Eye, EyeOff
@@ -17,7 +17,8 @@ type Inspection = {
   id: string; client: string; location: string; equipment: string; technician: string;
   date: string; status: Status; priority: 'Baixa'|'Normal'|'Alta'|'Crítica'; progress: number
 }
-type Resource = { id:string; name:string; detail:string; status:string; meta:string }
+type InspectionDraft = Pick<Inspection, 'client'|'location'|'equipment'|'technician'|'date'|'priority'>
+type Resource = { id:string; name:string; detail:string; status:string; meta:string; kind?:string }
 
 const trend = [
   { day:'Seg', total:18 }, { day:'Ter', total:26 }, { day:'Qua', total:21 },
@@ -50,6 +51,9 @@ function App() {
   const [inspections, setInspections] = useState(seed)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Inspection | null>(null)
+  const [newInspectionOpen, setNewInspectionOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(3)
 
   const filtered = useMemo(() => inspections.filter(i =>
     Object.values(i).join(' ').toLowerCase().includes(query.toLowerCase())
@@ -67,6 +71,14 @@ function App() {
     const next = {...selected, status:'Reprovada' as Status}
     setInspections(prev => prev.map(i => i.id === selected.id ? next : i))
     setSelected(next)
+  }
+  function createInspection(draft:InspectionDraft) {
+    const scheduledDate = new Date(draft.date).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'})
+    const next:Inspection = {...draft, date:scheduledDate, id:`INS-${String(inspections.length + 125).padStart(6, '0')}`, status:'Agendada', progress:0}
+    setInspections(prev => [next, ...prev])
+    setNewInspectionOpen(false)
+    setSelected(null)
+    setPage('Inspeções')
   }
 
   if (!authenticated) return <AuthScreen onAuthenticated={() => setAuthenticated(true)} />
@@ -86,18 +98,18 @@ function App() {
           <div className="search"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar no FieldOps..." /></div>
           <div className="sync"><span className="dot"></span> Sincronizado</div>
           <button className="icon-btn" onClick={()=>setDark(!dark)}>{dark?<Sun size={18}/>:<Moon size={18}/>}</button>
-          <button className="icon-btn"><Bell size={18}/><i></i></button>
+          <div className="notification-wrap"><button className="icon-btn notification-button" onClick={()=>setNotificationsOpen(!notificationsOpen)} aria-label="Abrir notificações"><Bell size={18}/>{unreadNotifications > 0 && <i></i>}</button>{notificationsOpen && <div className="notification-panel"><div className="notification-head"><div><strong>Notificações</strong><span>{unreadNotifications} não lidas</span></div><button onClick={()=>setUnreadNotifications(0)}>Marcar como lidas</button></div><div className="notification-item unread"><div className="notification-dot amber"><AlertTriangle size={15}/></div><div><b>Inspeção aguardando revisão</b><span>INS-000124 precisa da sua análise.</span><small>Há 12 minutos</small></div></div><div className="notification-item unread"><div className="notification-dot blue"><ClipboardCheck size={15}/></div><div><b>Nova evidência recebida</b><span>Ana Costa enviou fotos da inspeção.</span><small>Há 38 minutos</small></div></div><div className="notification-item"><div className="notification-dot green"><CheckCircle2 size={15}/></div><div><b>Inspeção aprovada</b><span>INS-000122 foi aprovada por Carlos Souza.</span><small>Hoje, 09:42</small></div></div><button className="notification-footer" onClick={()=>setNotificationsOpen(false)}>Ver todas as atividades <ArrowRight size={14}/></button></div>}</div>
           <div className="avatar">CS</div>
         </div>
       </header>
 
       <section className="content">
-        {page === 'Dashboard' && <Dashboard inspections={inspections} open={openInspection} />}
-        {page === 'Inspeções' && <InspectionsPage inspections={filtered} open={openInspection} selected={selected} approve={approve} reject={reject} />}
+        {page === 'Dashboard' && <Dashboard inspections={inspections} open={openInspection} onNew={()=>setNewInspectionOpen(true)} />}
+        {page === 'Inspeções' && <InspectionsPage inspections={filtered} open={openInspection} selected={selected} approve={approve} reject={reject} onNew={()=>setNewInspectionOpen(true)} />}
         {page !== 'Dashboard' && page !== 'Inspeções' && <ModulePage page={page} />}
       </section>
     </main>
-
+    {newInspectionOpen && <InspectionModal onClose={()=>setNewInspectionOpen(false)} onSave={createInspection} />}
   </div>
 }
 
@@ -147,13 +159,13 @@ function AuthScreen({onAuthenticated}:{onAuthenticated:()=>void}) {
   </div>
 }
 
-function Dashboard({inspections, open}:{inspections:Inspection[],open:(i:Inspection)=>void}) {
+function Dashboard({inspections, open, onNew}:{inspections:Inspection[],open:(i:Inspection)=>void,onNew:()=>void}) {
   const cards = [
     ['Inspeções hoje','18','+12,5%','blue',ClipboardCheck], ['Em andamento','11','+8,2%','amber',Activity],
     ['Aguardando revisão','7','-3,1%','violet',Clock3], ['Aprovadas','42','+16,8%','green',CheckCircle2],
     ['Não conformidades','13','+4,3%','red',AlertTriangle]
   ] as const
-  return <><div className="page-head"><div><div className="eyebrow">VISÃO OPERACIONAL</div><h1>Visão geral das operações</h1><p>Acompanhe a execução das inspeções em campo em tempo real.</p></div><button className="primary" onClick={()=>alert('Fluxo de nova inspeção pronto para integração')}><Plus size={18}/> Nova inspeção</button></div>
+  return <><div className="page-head"><div><div className="eyebrow">VISÃO OPERACIONAL</div><h1>Visão geral das operações</h1><p>Acompanhe a execução das inspeções em campo em tempo real.</p></div><button className="primary" onClick={onNew}><Plus size={18}/> Nova inspeção</button></div>
     <div className="stats">{cards.map(([label,value,trend,color,Icon])=><div className="stat" key={label}><div className="stat-top"><span>{label}</span><div className={'stat-icon '+color}><Icon size={19}/></div></div><div className="stat-value">{value}</div><div className="stat-trend">{trend}</div></div>)}</div>
     <div className="grid-2"><div className="panel"><div className="panel-head"><div><h3>Inspeções por período</h3><span>Últimos 7 dias</span></div><button className="select">Esta semana <ChevronDown size={15}/></button></div><div className="chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trend}><defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2563eb" stopOpacity=".24"/><stop offset="100%" stopColor="#2563eb" stopOpacity="0"/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--grid)"/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip/><Area type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={3} fill="url(#fill)"/></AreaChart></ResponsiveContainer></div></div>
     <div className="panel"><div className="panel-head"><div><h3>Inspeções por status</h3><span>Distribuição atual</span></div></div><div className="chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={statuses} layout="vertical" margin={{left:10,right:20}}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--grid)"/><XAxis type="number" axisLine={false} tickLine={false}/><YAxis type="category" dataKey="name" width={95} axisLine={false} tickLine={false}/><Tooltip/><Bar dataKey="value" fill="#0f172a" radius={[0,5,5,0]} barSize={18}/></BarChart></ResponsiveContainer></div></div></div>
@@ -161,9 +173,9 @@ function Dashboard({inspections, open}:{inspections:Inspection[],open:(i:Inspect
   </>
 }
 
-function InspectionsPage({inspections,open,selected,approve,reject}:{inspections:Inspection[],open:(i:Inspection)=>void,selected:Inspection|null,approve:()=>void,reject:()=>void}) {
+function InspectionsPage({inspections,open,selected,approve,reject,onNew}:{inspections:Inspection[],open:(i:Inspection)=>void,selected:Inspection|null,approve:()=>void,reject:()=>void,onNew:()=>void}) {
   if (selected) return <div><button className="back" onClick={()=>open(selected)}>← Voltar para inspeções</button><div className="page-head"><div><div className="eyebrow">{selected.id}</div><h1>{selected.equipment}</h1><p>{selected.client} · {selected.location}</p></div><StatusBadge status={selected.status}/></div><div className="detail-grid"><div className="panel detail-main"><div className="detail-banner"><div className="qr"><QrCode size={42}/></div><div><b>Inspeção técnica</b><span>Modelo: Segurança Operacional · v2.1</span></div><div className="progress-box"><span>Progresso</span><strong>{selected.progress}%</strong><div className="progress"><i style={{width:selected.progress+'%'}}/></div></div></div><h3>Checklist da inspeção</h3>{['Identificação do equipamento','Condições de segurança','Componentes e conexões','Evidências fotográficas'].map((x,n)=><div className="check-row" key={x}><div className="check-ok"><CheckCircle2 size={18}/></div><div><b>{n+1}. {x}</b><span>Verificação realizada conforme procedimento.</span></div><span className="answer">Conforme</span></div>)}<div className="evidence"><h3>Evidências</h3><div className="photo-placeholder"><Download size={25}/><span>Galeria de evidências</span><small>As fotos enviadas pelo técnico aparecerão aqui.</small></div></div></div><div className="detail-side"><div className="panel"><h3>Dados da inspeção</h3><Info label="Técnico" value={selected.technician}/><Info label="Data" value={selected.date}/><Info label="Prioridade" value={selected.priority}/><Info label="Equipamento" value={selected.equipment}/><Info label="Local" value={selected.location}/></div><div className="panel"><h3>Revisão</h3><p className="muted">Revise as respostas e evidências antes de tomar uma decisão.</p><button className="primary full" onClick={approve}><CheckCircle2 size={17}/> Aprovar inspeção</button><button className="danger full" onClick={reject}><X size={17}/> Reprovar inspeção</button></div></div></div></div>
-  return <><div className="page-head"><div><div className="eyebrow">OPERAÇÕES</div><h1>Inspeções</h1><p>Planeje, acompanhe e revise inspeções técnicas.</p></div><button className="primary"><Plus size={18}/> Nova inspeção</button></div><div className="toolbar"><div className="search wide"><Search size={17}/><input placeholder="Filtrar inspeções..." /></div><button className="filter">Status <ChevronDown size={15}/></button><button className="filter">Prioridade <ChevronDown size={15}/></button><button className="filter">Técnico <ChevronDown size={15}/></button></div><div className="panel"><InspectionTable inspections={inspections} open={open}/></div></>
+  return <><div className="page-head"><div><div className="eyebrow">OPERAÇÕES</div><h1>Inspeções</h1><p>Planeje, acompanhe e revise inspeções técnicas.</p></div><button className="primary" onClick={onNew}><Plus size={18}/> Nova inspeção</button></div><div className="toolbar"><div className="search wide"><Search size={17}/><input placeholder="Filtrar inspeções..." /></div><button className="filter">Status <ChevronDown size={15}/></button><button className="filter">Prioridade <ChevronDown size={15}/></button><button className="filter">Técnico <ChevronDown size={15}/></button></div><div className="panel"><InspectionTable inspections={inspections} open={open}/></div></>
 }
 
 function InspectionTable({inspections,open}:{inspections:Inspection[],open:(i:Inspection)=>void}) {
@@ -210,20 +222,22 @@ function ModulePage({page}:{page:string}) {
 }
 
 function ResourcePage({page,initial}:{page:string,initial:Resource[]}) {
-  const [items,setItems] = useState(initial)
+  const [items,setItems] = useState(initial.map(item=>({...item,kind:page})))
   const [query,setQuery] = useState('')
   const [modal,setModal] = useState(false)
   const [editing,setEditing] = useState<string | null>(null)
   const [draft,setDraft] = useState({name:'',detail:''})
-  const filtered = items.filter(item => `${item.id} ${item.name} ${item.detail} ${item.status}`.toLowerCase().includes(query.toLowerCase()))
+  const filtered = items.filter(item => item.kind === page && `${item.id} ${item.name} ${item.detail} ${item.status}`.toLowerCase().includes(query.toLowerCase()))
   const labels:Record<string,[string,string,string]> = { 'Modelos de inspeção':['modelos','checklists versionados','Novo modelo'], Clientes:['clientes','organizações atendidas','Novo cliente'], Locais:['locais','unidades e plantas','Novo local'], Equipamentos:['equipamentos','ativos monitorados','Novo equipamento'], 'Não conformidades':['não conformidades','ocorrências registradas','Nova ocorrência'] }
+  const resourceIcons:Record<string,typeof Wrench> = {'Modelos de inspeção':ClipboardList,Clientes:Users,Locais:MapPin,Equipamentos:Wrench,'Não conformidades':AlertTriangle}
   const [noun,subtitle,action] = labels[page] || ['registros','dados operacionais','Novo registro']
-  function save() { if (!draft.name.trim()) return; if (editing) setItems(items.map(item=>item.id===editing ? {...item,name:draft.name,detail:draft.detail || 'Sem descrição'} : item)); else setItems([{id:`${page.slice(0,3).toUpperCase()}-${String(items.length+1).padStart(3,'0')}`,name:draft.name,detail:draft.detail || 'Sem descrição',status:'Ativo',meta:'Criado agora'},...items]); setDraft({name:'',detail:''}); setEditing(null); setModal(false) }
+  const ResourceIcon = resourceIcons[page] || Building2
+  function save() { if (!draft.name.trim()) return; if (editing) setItems(items.map(item=>item.id===editing ? {...item,name:draft.name,detail:draft.detail || 'Sem descrição'} : item)); else setItems([{id:`${page.slice(0,3).toUpperCase()}-${String(items.length+1).padStart(3,'0')}`,name:draft.name,detail:draft.detail || 'Sem descrição',status:'Ativo',meta:'Criado agora',kind:page},...items]); setDraft({name:'',detail:''}); setEditing(null); setModal(false) }
   function edit(item:Resource) { setEditing(item.id); setDraft({name:item.name,detail:item.detail}); setModal(true) }
   return <><PageHeading eyebrow="GESTÃO OPERACIONAL" title={page} description={`Gerencie ${subtitle} do FieldOps.`} action={action} onAction={()=>setModal(true)} />
     <div className="toolbar"><div className="search wide"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={`Buscar ${noun}...`} /></div><button className="filter"><Filter size={15}/> Todos <ChevronDown size={15}/></button><button className="filter"><SlidersHorizontal size={15}/> Filtros</button></div>
-    <div className="panel"><div className="panel-head"><div><h3>{items.length} {noun}</h3><span>Dados atualizados em tempo real</span></div><button className="ghost"><Download size={15}/> Exportar</button></div><div className="resource-list">{filtered.map(item=><div className="resource-row" key={item.id}><div className="resource-icon"><Building2 size={19}/></div><div className="resource-main"><b>{item.name}</b><span>{item.detail}</span></div><span className={'badge '+(item.status==='Resolvida'||item.status==='Publicado'||item.status==='Ativo'||item.status==='Operacional'?'approved':item.status==='Atenção'||item.status==='Em tratamento'?'review':'scheduled')}>{item.status}</span><div className="resource-meta">{item.meta}</div><button className="icon-btn subtle" title="Editar" onClick={()=>edit(item)}><Pencil size={16}/></button><button className="icon-btn subtle" title="Excluir" onClick={()=>setItems(items.filter(current=>current.id!==item.id))}><Trash2 size={16}/></button></div>)}</div>{filtered.length===0 && <div className="no-results">Nenhum registro encontrado.</div>}</div>
-    {modal && <FormModal title={editing ? `Editar ${noun.slice(0,-1)}` : action} draft={draft} setDraft={setDraft} onClose={()=>{setModal(false);setEditing(null)}} onSave={save} />}
+    <div className="panel"><div className="panel-head"><div><h3>{filtered.length} {noun}</h3><span>Registros exclusivos deste módulo</span></div><button className="ghost"><Download size={15}/> Exportar</button></div><div className="resource-list">{filtered.map(item=><div className="resource-row" key={item.id}><div className="resource-icon"><ResourceIcon size={19}/></div><div className="resource-main"><b>{item.name}</b><span>{item.detail}</span></div><span className={'badge '+(item.status==='Resolvida'||item.status==='Publicado'||item.status==='Ativo'||item.status==='Operacional'?'approved':item.status==='Atenção'||item.status==='Em tratamento'?'review':'scheduled')}>{item.status}</span><div className="resource-meta">{item.meta}</div><button className="icon-btn subtle" title="Editar" onClick={()=>edit(item)}><Pencil size={16}/></button><button className="icon-btn subtle" title="Excluir" onClick={()=>setItems(items.filter(current=>current.id!==item.id))}><Trash2 size={16}/></button></div>)}</div>{filtered.length===0 && <div className="no-results">Nenhum registro encontrado.</div>}</div>
+    {modal && <FormModal page={page} title={editing ? `Editar ${noun.slice(0,-1)}` : action} draft={draft} setDraft={setDraft} onClose={()=>{setModal(false);setEditing(null)}} onSave={save} />}
   </>
 }
 
@@ -237,5 +251,48 @@ function AuditPage() { const logs=[['Hoje, 10:42','Carlos Souza','aprovou a insp
 
 function SettingsPage() { const [saved,setSaved]=useState(false); const [notifications,setNotifications]=useState(true); const [offline,setOffline]=useState(true); return <><PageHeading eyebrow="ADMINISTRAÇÃO" title="Configurações" description="Ajuste preferências, notificações e regras do ambiente." action="Salvar alterações" onAction={()=>setSaved(true)} /><div className="settings-grid"><div className="panel settings-nav"><button className="settings-tab active"><Settings size={17}/> Geral</button><button className="settings-tab"><Bell size={17}/> Notificações</button><button className="settings-tab"><Users size={17}/> Equipe e permissões</button><button className="settings-tab"><ShieldCheck size={17}/> Segurança</button></div><div className="panel settings-form"><h3>Preferências do ambiente</h3><p className="muted">Defina como sua equipe trabalha no FieldOps.</p><label>Nome da organização<input defaultValue="FieldOps Operações" /></label><label>Fuso horário<select defaultValue="America/Sao_Paulo"><option value="America/Sao_Paulo">(GMT-03:00) São Paulo</option><option value="America/New_York">(GMT-04:00) New York</option></select></label><div className="toggle-row"><div><b>Notificações de revisão</b><span>Avise supervisores quando uma inspeção aguardar revisão.</span></div><button className={'toggle '+(notifications?'on':'')} onClick={()=>setNotifications(!notifications)}><i/></button></div><div className="toggle-row"><div><b>Modo offline para técnicos</b><span>Permita coleta de dados sem conexão.</span></div><button className={'toggle '+(offline?'on':'')} onClick={()=>setOffline(!offline)}><i/></button></div>{saved&&<div className="saved"><CheckCircle2 size={16}/> Alterações salvas nesta sessão.</div>}<button className="primary" onClick={()=>setSaved(true)}><Save size={16}/> Salvar preferências</button></div></div></> }
 
-function FormModal({title,draft,setDraft,onClose,onSave}:{title:string,draft:{name:string,detail:string},setDraft:(draft:{name:string,detail:string})=>void,onClose:()=>void,onSave:()=>void}) { return <div className="overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}><button className="close" onClick={onClose}><X/></button><div className="modal-icon"><Plus/></div><h2>{title}</h2><p>Preencha os dados principais para criar o registro.</p><input autoFocus placeholder="Nome / identificação" value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/><input placeholder="Descrição ou observação" value={draft.detail} onChange={e=>setDraft({...draft,detail:e.target.value})}/><button className="primary" onClick={onSave}><Save size={16}/> Salvar registro</button></div></div> }
+function InspectionModal({onClose,onSave}:{onClose:()=>void,onSave:(draft:InspectionDraft)=>void}) {
+  const [draft,setDraft] = useState<InspectionDraft>({client:'',location:'',equipment:'',technician:'',date:'2026-08-25T09:00',priority:'Normal'})
+  const ready = Object.values(draft).every(value => value.trim())
+  return <div className="overlay" onClick={onClose}><div className="modal inspection-modal" role="dialog" aria-modal="true" aria-labelledby="inspection-modal-title" onClick={e=>e.stopPropagation()}>
+    <div className="modal-topline"><span className="modal-kicker">NOVA INSPEÇÃO</span><button className="close" onClick={onClose} aria-label="Fechar"><X size={22}/></button></div>
+    <div className="modal-intro"><div className="modal-icon"><ClipboardCheck size={22}/></div><div><h2 id="inspection-modal-title">Agendar inspeção</h2><p>Organize a próxima visita e atribua os responsáveis.</p></div></div>
+    <div className="inspection-form-grid">
+      <label>Cliente <span>Obrigatório</span><input autoFocus placeholder="Ex.: Toyota Industrial" value={draft.client} onChange={e=>setDraft({...draft,client:e.target.value})}/></label>
+      <label>Local <span>Obrigatório</span><input placeholder="Ex.: Planta Sorocaba" value={draft.location} onChange={e=>setDraft({...draft,location:e.target.value})}/></label>
+      <label className="span-2">Equipamento <span>Obrigatório</span><input placeholder="Ex.: Painel Elétrico PE-021" value={draft.equipment} onChange={e=>setDraft({...draft,equipment:e.target.value})}/></label>
+      <label>Técnico responsável <span>Obrigatório</span><select value={draft.technician} onChange={e=>setDraft({...draft,technician:e.target.value})}><option value="">Selecione um técnico</option><option>João Silva</option><option>Marcos Lima</option><option>Ana Costa</option></select></label>
+      <label>Data e horário <span>Obrigatório</span><input type="datetime-local" value={draft.date} min="2026-08-25T00:00" onChange={e=>setDraft({...draft,date:e.target.value})}/></label>
+      <label className="span-2">Prioridade <span>Obrigatório</span><select value={draft.priority} onChange={e=>setDraft({...draft,priority:e.target.value as InspectionDraft['priority']})}><option>Baixa</option><option>Normal</option><option>Alta</option><option>Crítica</option></select></label>
+    </div>
+    <div className="modal-footer"><small><CheckCircle2 size={14}/> A inspeção será criada como agendada</small><div><button className="modal-cancel" onClick={onClose}>Cancelar</button><button className="primary" disabled={!ready} onClick={()=>onSave(draft)}><CalendarCheck size={16}/> Criar inspeção</button></div></div>
+  </div></div>
+}
+
+function FormModal({page,title,draft,setDraft,onClose,onSave}:{page:string,title:string,draft:{name:string,detail:string},setDraft:(draft:{name:string,detail:string})=>void,onClose:()=>void,onSave:()=>void}) {
+  const editing = title.startsWith('Editar')
+  const config:Record<string,{icon:typeof Wrench; eyebrow:string; name:string; namePlaceholder:string; detail:string; detailPlaceholder:string; optionLabel:string; options:string[]}> = {
+    'Modelos de inspeção':{icon:ClipboardList,eyebrow:'NOVO CHECKLIST',name:'Nome do modelo',namePlaceholder:'Ex.: Segurança Operacional',detail:'Objetivo e escopo',detailPlaceholder:'Descreva quando este checklist deve ser usado...',optionLabel:'Versão inicial',options:['v1.0 · Rascunho','v1.0 · Publicado']},
+    Clientes:{icon:Building2,eyebrow:'NOVO CLIENTE',name:'Razão social',namePlaceholder:'Ex.: Toyota Industrial',detail:'Segmento e observações',detailPlaceholder:'Adicione informações sobre a organização...',optionLabel:'Status do cliente',options:['Ativo','Em implantação','Prospect']},
+    Locais:{icon:MapPin,eyebrow:'NOVO LOCAL',name:'Nome da unidade',namePlaceholder:'Ex.: Planta Sorocaba',detail:'Endereço e referência',detailPlaceholder:'Informe endereço, cidade ou ponto de referência...',optionLabel:'Tipo de unidade',options:['Planta industrial','Unidade operacional','Escritório']},
+    Equipamentos:{icon:Wrench,eyebrow:'NOVO EQUIPAMENTO',name:'Nome / identificação',namePlaceholder:'Ex.: Compressor CP-002',detail:'Descrição ou observação',detailPlaceholder:'Adicione detalhes técnicos ou observações...',optionLabel:'Status operacional',options:['Operacional','Atenção','Fora de operação']},
+    'Não conformidades':{icon:AlertTriangle,eyebrow:'NOVA OCORRÊNCIA',name:'Título da ocorrência',namePlaceholder:'Ex.: Proteção do compressor ausente',detail:'Descrição da não conformidade',detailPlaceholder:'Descreva o risco encontrado e a ação necessária...',optionLabel:'Prioridade',options:['Baixa','Normal','Alta','Crítica']}
+  }
+  const current = config[page] || config.Equipamentos
+  const Icon = current.icon
+  const [option,setOption] = useState(current.options[0])
+  return <div className="overlay" onClick={onClose}>
+    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="form-modal-title" onClick={e=>e.stopPropagation()}>
+      <div className="modal-topline"><span className="modal-kicker">{editing ? 'ATUALIZAÇÃO DE REGISTRO' : current.eyebrow}</span><button className="close" onClick={onClose} aria-label="Fechar"><X size={22}/></button></div>
+      <div className="modal-intro"><div className="modal-icon"><Icon size={22}/></div><div><h2 id="form-modal-title">{title}</h2><p>{editing ? 'Revise as informações e mantenha sua operação atualizada.' : `Configure os dados principais de ${page.toLowerCase()}.`}</p></div></div>
+      <div className="modal-context"><div className="context-icon"><ClipboardList size={16}/></div><div><strong>Informações essenciais</strong><span>Você poderá complementar este registro depois.</span></div><span className="context-status"><i/> Rascunho</span></div>
+      <div className="modal-fields">
+        <label>{current.name} <span>Obrigatório</span><div className="modal-field"><Icon size={17}/><input autoFocus placeholder={current.namePlaceholder} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})}/></div></label>
+        <label>{current.detail} <em>Opcional</em><div className="modal-field textarea"><FileText size={17}/><textarea rows={3} placeholder={current.detailPlaceholder} value={draft.detail} onChange={e=>setDraft({...draft,detail:e.target.value})}/></div></label>
+        <label className="modal-option">{current.optionLabel}<select value={option} onChange={e=>setOption(e.target.value)}>{current.options.map(item=><option key={item}>{item}</option>)}</select></label>
+      </div>
+      <div className="modal-footer"><small><CheckCircle2 size={14}/> Salvamento seguro e rastreável</small><div><button className="modal-cancel" onClick={onClose}>Cancelar</button><button className="primary" disabled={!draft.name.trim()} onClick={onSave}><Save size={16}/> {editing ? 'Salvar alterações' : 'Salvar registro'}</button></div></div>
+    </div>
+  </div>
+}
 export default App
