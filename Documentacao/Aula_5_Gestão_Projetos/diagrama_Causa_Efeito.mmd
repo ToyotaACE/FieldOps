@@ -1,0 +1,156 @@
+graph LR
+
+    E["EFEITO<br/>Fragmentação e baixa rastreabilidade<br/>no processo de inspeções técnicas em campo"]
+
+    %% =========================
+    %% MÉTODO
+    %% =========================
+    M["MÉTODO"]
+    M1["Processo baseado em papel,<br/>planilhas e mensagens"]
+    M2["Falta de padronização<br/>na execução das inspeções"]
+    M3["Ausência de fluxo formal<br/>de revisão e aprovação"]
+    M4["Falta de modelos de inspeção<br/>versionados"]
+    
+    M1A["Informações distribuídas<br/>em diferentes canais"]
+    M2A["Checklists preenchidos<br/>de formas diferentes"]
+    M3A["Correções solicitadas<br/>informalmente"]
+    M4A["Dificuldade para identificar<br/>a versão utilizada"]
+
+    M --> M1
+    M --> M2
+    M --> M3
+    M --> M4
+    M1 --> M1A
+    M2 --> M2A
+    M3 --> M3A
+    M4 --> M4A
+    M --> E
+
+    %% =========================
+    %% MÁQUINA
+    %% =========================
+    MA["MÁQUINA"]
+    MA1["Dependência de conexão<br/>com a internet"]
+    MA2["Ausência de armazenamento<br/>local estruturado"]
+    MA3["Ferramentas não integradas"]
+    MA4["Falta de sistema centralizado"]
+
+    MA1A["Falha de rede interrompe<br/>o preenchimento"]
+    MA2A["Risco de perda de dados"]
+    MA3A["Uso de mensagens,<br/>planilhas e outros aplicativos"]
+    MA4A["Dados espalhados<br/>em diferentes sistemas"]
+
+    MA --> MA1
+    MA --> MA2
+    MA --> MA3
+    MA --> MA4
+    MA1 --> MA1A
+    MA2 --> MA2A
+    MA3 --> MA3A
+    MA4 --> MA4A
+    MA --> E
+
+    %% =========================
+    %% MÃO DE OBRA
+    %% =========================
+    MO["MÃO DE OBRA"]
+    MO1["Treinamento insuficiente<br/>sobre o processo"]
+    MO2["Excesso de digitação<br/>em campo"]
+    MO3["Comunicação fragmentada<br/>entre técnico e supervisor"]
+    MO4["Retrabalho por informações<br/>incompletas"]
+
+    MO1A["Dúvidas sobre preenchimento<br/>dos itens"]
+    MO2A["Maior possibilidade<br/>de erro humano"]
+    MO3A["Informações enviadas<br/>por diferentes canais"]
+    MO4A["Supervisor solicita<br/>complementações"]
+
+    MO --> MO1
+    MO --> MO2
+    MO --> MO3
+    MO --> MO4
+    MO1 --> MO1A
+    MO2 --> MO2A
+    MO3 --> MO3A
+    MO4 --> MO4A
+    MO --> E
+
+    %% =========================
+    %% MATERIAL
+    %% =========================
+    MT["MATERIAL"]
+    MT1["Formulários e documentos<br/>em formatos diferentes"]
+    MT2["Fotografias sem vínculo<br/>estruturado"]
+    MT3["Informações de equipamentos<br/>descentralizadas"]
+    MT4["Dados cadastrais<br/>duplicados ou desatualizados"]
+
+    MT1A["Planilhas, PDFs e<br/>documentos impressos"]
+    MT2A["Dificuldade para identificar<br/>qual item foi fotografado"]
+    MT3A["Ausência de cadastro<br/>centralizado"]
+    MT4A["Retrabalho e inconsistências"]
+
+    MT --> MT1
+    MT --> MT2
+    MT --> MT3
+    MT --> MT4
+    MT1 --> MT1A
+    MT2 --> MT2A
+    MT3 --> MT3A
+    MT4 --> MT4A
+    MT --> E
+
+    %% =========================
+    %% MEIO AMBIENTE
+    %% =========================
+    ME["MEIO AMBIENTE"]
+    ME1["Locais de inspeção<br/>com conectividade irregular"]
+    ME2["Condições de campo<br/>exigem rapidez"]
+    ME3["Uso do sistema em ambientes<br/>com diferentes condições"]
+    ME4["Pressão por produtividade<br/>e conclusão das atividades"]
+
+    ME1A["Áreas sem sinal<br/>de internet"]
+    ME2A["Pouco tempo para<br/>digitação e conferência"]
+    ME3A["Necessidade de operar<br/>com dispositivos móveis"]
+    ME4A["Preenchimentos incompletos<br/>ou realizados posteriormente"]
+
+    ME --> ME1
+    ME --> ME2
+    ME --> ME3
+    ME --> ME4
+    ME1 --> ME1A
+    ME2 --> ME2A
+    ME3 --> ME3A
+    ME4 --> ME4A
+    ME --> E
+
+    %% =========================
+    %% MEDIDA
+    %% =========================
+    MD["MEDIDA"]
+    MD1["Falta de indicadores<br/>operacionais"]
+    MD2["Ausência de acompanhamento<br/>do status em tempo real"]
+    MD3["Dificuldade para medir<br/>tempo de execução"]
+    MD4["Falta de histórico<br/>e auditoria estruturada"]
+
+    MD1A["Atrasos não são<br/>identificados rapidamente"]
+    MD2A["Supervisor depende<br/>de mensagens"]
+    MD3A["Retrabalho não é<br/>mensurado"]
+    MD4A["Alterações não possuem<br/>rastreabilidade adequada"]
+
+    MD --> MD1
+    MD --> MD2
+    MD --> MD3
+    MD --> MD4
+    MD1 --> MD1A
+    MD2 --> MD2A
+    MD3 --> MD3A
+    MD4 --> MD4A
+    MD --> E
+
+    %% =========================
+    %% ESTILO
+    %% =========================
+    classDef efeito font-weight:bold;
+    classDef categoria font-weight:bold;
+
+    class E efeito;
+    class M,MA,MO,MT,ME,MD categoria;
