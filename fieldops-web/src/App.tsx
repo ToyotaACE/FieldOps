@@ -11,36 +11,10 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer,
   Tooltip, XAxis, YAxis
 } from 'recharts'
-
-type Status = 'Agendada' | 'Em andamento' | 'Aguardando revisão' | 'Aprovada' | 'Reprovada'
-type Inspection = {
-  id: string; client: string; location: string; equipment: string; technician: string;
-  date: string; status: Status; priority: 'Baixa'|'Normal'|'Alta'|'Crítica'; progress: number
-}
-type InspectionDraft = Pick<Inspection, 'client'|'location'|'equipment'|'technician'|'date'|'priority'>
-type Resource = { id:string; name:string; detail:string; status:string; meta:string; kind?:string }
-
-function downloadCsv(filename:string, rows:string[][]) {
-  const csv = rows.map(row => row.map(value => `"${value.replace(/"/g, '""')}"`).join(',')).join('\n')
-  const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8;'}))
-  const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url)
-}
-
-const trend = [
-  { day:'Seg', total:18 }, { day:'Ter', total:26 }, { day:'Qua', total:21 },
-  { day:'Qui', total:34 }, { day:'Sex', total:29 }, { day:'Sáb', total:12 }, { day:'Dom', total:8 }
-]
-const statuses = [
-  { name:'Agendadas', value:18 }, { name:'Em andamento', value:11 },
-  { name:'Revisão', value:7 }, { name:'Aprovadas', value:42 }, { name:'Reprovadas', value:5 }
-]
-const seed: Inspection[] = [
-  {id:'INS-000124',client:'Toyota Industrial',location:'Planta Sorocaba',equipment:'Painel Elétrico PE-021',technician:'João Silva',date:'11/08/2026',status:'Aguardando revisão',priority:'Alta',progress:100},
-  {id:'INS-000123',client:'Metalúrgica Alpha',location:'Unidade Industrial 01',equipment:'Compressor CP-001',technician:'Marcos Lima',date:'11/08/2026',status:'Em andamento',priority:'Crítica',progress:72},
-  {id:'INS-000122',client:'Indústria NovaTech',location:'Planta Campinas',equipment:'Motor MTR-103',technician:'Ana Costa',date:'10/08/2026',status:'Aprovada',priority:'Normal',progress:100},
-  {id:'INS-000121',client:'Toyota Industrial',location:'Planta Sorocaba',equipment:'Bomba hidráulica BH-022',technician:'João Silva',date:'10/08/2026',status:'Reprovada',priority:'Alta',progress:100},
-  {id:'INS-000120',client:'Metalúrgica Alpha',location:'Unidade Industrial 01',equipment:'Compressor CP-001',technician:'Marcos Lima',date:'09/08/2026',status:'Agendada',priority:'Baixa',progress:0}
-]
+import type { Inspection, InspectionDraft, Resource, Status } from './types'
+import { seed, statuses, trend } from './data/mockData'
+import { downloadCsv } from './utils/downloadCsv'
+import { AuthScreen as AuthPage } from './pages/auth/AuthScreen'
 
 const menu = [
   ['Dashboard', LayoutDashboard], ['Inspeções', ClipboardCheck], ['Calendário', CalendarDays],
@@ -87,7 +61,7 @@ function App() {
     setPage('Inspeções')
   }
 
-  if (!authenticated) return <AuthScreen onAuthenticated={() => setAuthenticated(true)} />
+  if (!authenticated) return <AuthPage onAuthenticated={() => setAuthenticated(true)} />
 
   return <div className={dark ? 'app dark' : 'app'}>
     <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
@@ -116,52 +90,6 @@ function App() {
       </section>
     </main>
     {newInspectionOpen && <InspectionModal onClose={()=>setNewInspectionOpen(false)} onSave={createInspection} />}
-  </div>
-}
-
-function AuthScreen({onAuthenticated}:{onAuthenticated:()=>void}) {
-  const [mode, setMode] = useState<'login'|'signup'>('login')
-  const [showPassword, setShowPassword] = useState(false)
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-
-  function submit(event:React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (mode === 'signup' && name.trim().length < 2) { setError('Informe seu nome completo.'); return }
-    if (!email.includes('@')) { setError('Informe um e-mail válido.'); return }
-    if (password.length < 6) { setError('A senha deve ter pelo menos 6 caracteres.'); return }
-    onAuthenticated()
-  }
-
-  function changeMode(next:'login'|'signup') {
-    setMode(next)
-    setError('')
-  }
-
-  return <div className="auth-page">
-    <div className="auth-aside">
-      <div className="auth-brand"><div className="brand-mark"><HardHat size={22}/></div><strong>Field<span>Ops</span></strong></div>
-      <div className="auth-aside-copy"><div className="eyebrow">OPERAÇÕES EM CAMPO</div><h1>Clareza para cada inspeção.</h1><p>Conecte sua equipe, acompanhe riscos e transforme dados de campo em decisões seguras.</p></div>
-      <div className="auth-aside-footer"><span className="auth-status-dot"/> Ambiente operacional protegido</div>
-    </div>
-    <main className="auth-main">
-      <div className="auth-card">
-        <div className="auth-mobile-brand"><div className="brand-mark"><HardHat size={20}/></div><strong>Field<span>Ops</span></strong></div>
-        <div className="auth-heading"><div className="eyebrow">BEM-VINDO AO FIELDOPS</div><h2>{mode === 'login' ? 'Acesse sua operação' : 'Crie seu acesso'}</h2><p>{mode === 'login' ? 'Entre para acompanhar suas inspeções em tempo real.' : 'Comece a organizar suas inspeções em um só lugar.'}</p></div>
-        <div className="auth-tabs"><button className={mode==='login'?'active':''} onClick={()=>changeMode('login')}>Entrar</button><button className={mode==='signup'?'active':''} onClick={()=>changeMode('signup')}>Criar conta</button></div>
-        <form className="auth-form" onSubmit={submit}>
-          {mode === 'signup' && <label>Nome completo<div className="field"><UserRound size={17}/><input value={name} onChange={e=>setName(e.target.value)} placeholder="Como devemos chamar você?" autoComplete="name" /></div></label>}
-          <label>E-mail corporativo<div className="field"><Mail size={17}/><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@empresa.com" autoComplete="email" /></div></label>
-          <label>Senha<div className="field"><LockKeyhole size={17}/><input type={showPassword?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo de 6 caracteres" autoComplete={mode==='login'?'current-password':'new-password'} /><button type="button" className="password-toggle" onClick={()=>setShowPassword(!showPassword)} aria-label={showPassword?'Ocultar senha':'Mostrar senha'}>{showPassword?<EyeOff size={17}/>:<Eye size={17}/>}</button></div></label>
-          {mode === 'login' && <div className="auth-options"><label className="remember"><input type="checkbox"/> <span>Manter conectado</span></label><button type="button" className="text-button" onClick={()=>setError('Entre em contato com o administrador para recuperar seu acesso.')}>Esqueci minha senha</button></div>}
-          {error && <div className="auth-error">{error}</div>}
-          <button className="auth-submit" type="submit">{mode === 'login' ? 'Entrar no FieldOps' : 'Criar minha conta'} <ArrowRight size={17}/></button>
-        </form>
-        <p className="auth-legal">Ao continuar, você concorda com os termos de uso e a política de privacidade.</p>
-      </div>
-    </main>
   </div>
 }
 
