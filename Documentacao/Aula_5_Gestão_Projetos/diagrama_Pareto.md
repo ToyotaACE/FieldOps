@@ -1,4 +1,3 @@
-```mermaid
 graph TD
     classDef vital fill:#ffebee,stroke:#c62828,stroke-width:2px;
     classDef comum fill:#e3f2fd,stroke:#1565c0,stroke-width:1px;
