@@ -1,9 +1,9 @@
 package com.fieldops.fieldops_api.config;
 
 import com.fieldops.fieldops_api.security.JwtAuthenticationFilter;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -19,67 +19,73 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http
-    ) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf.disable())
 
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
-                )
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
 
-                .authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> auth
 
-                        // Autenticação
-                        .requestMatchers(
-                                "/api/v1/auth/**",
-                                "/error"
-                        ).permitAll()
+                // Autenticação
+                .requestMatchers("/api/v1/auth/**", "/error").permitAll()
 
-                        // Usuários
-                        .requestMatchers("/api/v1/users/**")
-                        .hasRole("ADMIN")
+                // Usuários
+                .requestMatchers("/api/v1/users/**")
+                .hasRole("ADMIN")
 
-                        // Clientes
-                        .requestMatchers("/api/v1/clients/**")
-                        .hasRole("ADMIN")
+                // Clientes
+                .requestMatchers("/api/v1/clients/**")
+                .hasRole("ADMIN")
 
-                        // Locais
-                        .requestMatchers("/api/v1/sites/**")
-                        .hasRole("ADMIN")
+                // Locais
+                .requestMatchers("/api/v1/sites/**")
+                .hasRole("ADMIN")
 
-                        // Equipamentos
-                        .requestMatchers("/api/v1/equipments/**")
-                        .hasRole("ADMIN")
+                // Equipamentos
+                .requestMatchers("/api/v1/equipments/**")
+                .hasRole("ADMIN")
 
-                        // Modelos de inspeção
-                        .requestMatchers("/api/v1/inspection-templates/**")
-                        .hasAnyRole("ADMIN", "SUPERVISOR")
+                // Modelos de inspeção
+                .requestMatchers("/api/v1/inspection-templates/**")
+                .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                        // Versões dos modelos
-                        .requestMatchers("/api/v1/inspection-template-versions/**")
-                        .hasAnyRole("ADMIN", "SUPERVISOR")
+                // Versões dos modelos
+                .requestMatchers("/api/v1/inspection-template-versions/**")
+                .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                        // Seções
-                        .requestMatchers("/api/v1/template-sections/**")
-                        .hasAnyRole("ADMIN", "SUPERVISOR")
+                // Seções dos modelos
+                .requestMatchers("/api/v1/template-sections/**")
+                .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                        // Itens
-                        .requestMatchers("/api/v1/template-items/**")
-                        .hasAnyRole("ADMIN", "SUPERVISOR")
+                // Itens dos modelos
+                .requestMatchers("/api/v1/template-items/**")
+                .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                        // Demais endpoints
-                        .anyRequest().authenticated()
-                )
+                // CRIAÇÃO DE INSPEÇÃO
+                // Técnico não cria inspeções.
+                .requestMatchers(HttpMethod.POST, "/api/v1/inspections/**")
+                .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                // CONSULTA DE INSPEÇÕES
+                .requestMatchers(HttpMethod.GET, "/api/v1/inspections/**")
+                .hasAnyRole("ADMIN", "SUPERVISOR", "TECHNICIAN")
+
+                // Atualização de status
+                .requestMatchers(HttpMethod.PATCH, "/api/v1/inspections/**")
+                .hasAnyRole("ADMIN", "SUPERVISOR", "TECHNICIAN")
+
+                // Demais endpoints
+                .anyRequest().authenticated()
+            )
+
+            .addFilterBefore(
+                jwtAuthenticationFilter,
+                UsernamePasswordAuthenticationFilter.class
+            );
 
         return http.build();
     }

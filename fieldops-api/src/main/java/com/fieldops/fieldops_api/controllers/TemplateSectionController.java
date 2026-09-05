@@ -8,14 +8,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/template-sections")
 public class TemplateSectionController {
 
     private final TemplateSectionService service;
 
-    public TemplateSectionController(
-            TemplateSectionService service) {
+    public TemplateSectionController(TemplateSectionService service) {
         this.service = service;
     }
 
@@ -23,9 +24,14 @@ public class TemplateSectionController {
     public ResponseEntity<TemplateSectionResponseDTO> findById(
             @PathVariable Long id) {
 
-        return ResponseEntity.ok(
-                service.findById(id)
-        );
+        return ResponseEntity.ok(service.findById(id));
+    }
+
+    @GetMapping("/version/{versionId}")
+    public ResponseEntity<List<TemplateSectionResponseDTO>> findByVersionId(
+            @PathVariable Long versionId) {
+
+        return ResponseEntity.ok(service.findByVersionId(versionId));
     }
 
     @PostMapping("/version/{versionId}")
@@ -36,9 +42,7 @@ public class TemplateSectionController {
         TemplateSectionResponseDTO response =
                 service.create(versionId, request);
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PutMapping("/{id}")
