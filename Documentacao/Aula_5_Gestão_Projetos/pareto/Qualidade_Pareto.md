@@ -1,6 +1,10 @@
+# Pareto - Qualidade e Pós-Atendimento
+
+```mermaid
 xychart-beta
-    title "2. Qualidade e Pos-Atendimento"
+    title "Pareto - Qualidade e Pós-Atendimento"
     x-axis ["Incompleto", "Atraso", "Limpeza", "Fatura/OS", "Retorno", "Outros"]
-    y-axis "Ocorrencias" 0 --> 350
+    y-axis "Ocorrências" 0 --> 310
     bar [290, 230, 180, 140, 100, 60]
-    line [290, 230, 180, 140, 100, 60]
+    line [29, 52, 70, 84, 94, 100]
+```
