@@ -1,0 +1,173 @@
+flowchart TD
+
+    INICIO([Início do Projeto])
+
+    %% ================= INICIAÇÃO =================
+    subgraph INICIACAO["1. INICIAÇÃO"]
+        A1["Identificar problema e oportunidade"]
+        A2["Levantar necessidades"]
+        A3["Identificar stakeholders"]
+        A4["Analisar viabilidade"]
+        D1{"Projeto viável?"}
+        A5["Elaborar Termo de Abertura - TAP"]
+        D2{"TAP aprovado?"}
+        A6["Ajustar TAP"]
+    end
+
+    %% ================= PLANEJAMENTO =================
+    subgraph PLANEJAMENTO["2. PLANEJAMENTO"]
+        B1["Definir escopo"]
+        B2["Elaborar EAP / WBS"]
+        B3["Definir requisitos"]
+        B4["Elaborar cronograma"]
+        B5["Definir orçamento"]
+        B6["Identificar riscos"]
+        B7["Definir respostas aos riscos"]
+        B8["Elaborar matriz RACI"]
+        B9["Definir plano de comunicação"]
+        B10["Definir plano de qualidade"]
+        D3{"Planejamento aprovado?"}
+        B11["Revisar planejamento"]
+    end
+
+    %% ================= EXECUÇÃO =================
+    subgraph EXECUCAO["3. EXECUÇÃO"]
+        C1["Desenvolver solução FieldOps"]
+        C2["Configurar sistemas e integrações"]
+        C3["Desenvolver funcionalidades"]
+        C4["Realizar testes técnicos"]
+        C5["Validar com usuários"]
+        D4{"Atende aos requisitos?"}
+        C6["Registrar não conformidades"]
+        C7["Realizar correções / retrabalho"]
+        C8["Controle de qualidade"]
+        D5{"Existe solicitação de mudança?"}
+        C9["Analisar impacto da mudança"]
+        D6{"Mudança aprovada?"}
+        C10["Atualizar escopo, prazo e riscos"]
+        C11["Rejeitar mudança"]
+    end
+
+    %% ================= MONITORAMENTO =================
+    subgraph MONITORAMENTO["4. MONITORAMENTO E CONTROLE"]
+        D7["Acompanhar cronograma"]
+        D8["Controlar custos"]
+        D9["Monitorar KPIs"]
+        D10["Monitorar riscos"]
+        D11["Controlar qualidade"]
+        D12["Emitir status report"]
+        D13{"Projeto dentro dos parâmetros?"}
+        D14["Executar ação corretiva"]
+    end
+
+    %% ================= ENCERRAMENTO =================
+    subgraph ENCERRAMENTO["5. ENCERRAMENTO"]
+        E1["Realizar homologação"]
+        D15{"Homologado?"}
+        E2["Realizar correções finais"]
+        E3["Realizar transição para operação"]
+        E4["Treinar usuários"]
+        E5["Finalizar documentação"]
+        E6["Registrar lições aprendidas"]
+        E7["Avaliar resultados e KPIs"]
+        E8["Encerramento formal do projeto"]
+        FIM([Projeto Encerrado])
+    end
+
+    %% ================= FLUXO =================
+
+    INICIO --> A1
+    A1 --> A2
+    A2 --> A3
+    A3 --> A4
+    A4 --> D1
+
+    D1 -->|Não| A2
+    D1 -->|Sim| A5
+
+    A5 --> D2
+    D2 -->|Não| A6
+    A6 --> A5
+    D2 -->|Sim| B1
+
+    B1 --> B2
+    B2 --> B3
+    B3 --> B4
+    B4 --> B5
+    B5 --> B6
+    B6 --> B7
+    B7 --> B8
+    B8 --> B9
+    B9 --> B10
+    B10 --> D3
+
+    D3 -->|Não| B11
+    B11 --> B1
+    D3 -->|Sim| C1
+
+    C1 --> C2
+    C2 --> C3
+    C3 --> C4
+    C4 --> C5
+    C5 --> D4
+
+    D4 -->|Não| C6
+    C6 --> C7
+    C7 --> C4
+
+    D4 -->|Sim| C8
+    C8 --> D5
+
+    D5 -->|Sim| C9
+    C9 --> D6
+
+    D6 -->|Sim| C10
+    C10 --> B1
+
+    D6 -->|Não| C11
+    C11 --> D5
+
+    D5 -->|Não| D7
+
+    D7 --> D8
+    D8 --> D9
+    D9 --> D10
+    D10 --> D11
+    D11 --> D12
+    D12 --> D13
+
+    D13 -->|Não| D14
+    D14 --> C7
+
+    D13 -->|Sim| E1
+
+    E1 --> D15
+
+    D15 -->|Não| E2
+    E2 --> C4
+
+    D15 -->|Sim| E3
+    E3 --> E4
+    E4 --> E5
+    E5 --> E6
+    E6 --> E7
+    E7 --> E8
+    E8 --> FIM
+
+    %% ================= ESTILIZAÇÃO =================
+
+    classDef inicio fill:#2E7D32,color:#fff,stroke:#1B5E20,stroke-width:3px
+    classDef atividade fill:#FFFFFF,color:#212121,stroke:#78909C,stroke-width:1px
+    classDef decisao fill:#FFF3CD,color:#5D4037,stroke:#F9A825,stroke-width:2px
+    classDef critica fill:#FCE4EC,color:#880E4F,stroke:#C2185B,stroke-width:2px
+    classDef marco fill:#E8F5E9,color:#1B5E20,stroke:#2E7D32,stroke-width:3px
+
+    class INICIO,FIM inicio
+
+    class D1,D2,D3,D4,D5,D6,D13,D15 decisao
+
+    class A4,A5,B3,B10,C4,C5,C8,D9,D11,E1,E3,E7 critica
+
+    class E8 marco
+
+    class A1,A2,A3,A6,B1,B2,B4,B5,B6,B7,B8,B9,B11,C1,C2,C3,C6,C7,C9,C10,C11,D7,D8,D10,D12,D14,E2,E4,E5,E6 atividade
