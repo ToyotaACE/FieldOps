@@ -2,16 +2,6 @@
 
 ## Gestão de Serviços e Operações de Campo
 
-### Objetivo
-
-As Folhas de Verificação têm como objetivo padronizar a coleta de dados das operações de campo do projeto **FieldOps**, permitindo registrar falhas e não conformidades durante a execução dos serviços.
-
-Os dados coletados poderão posteriormente alimentar análises como:
-
-**Folha de Verificação → Pareto → Ishikawa → Plano de Ação → Monitoramento**
-
----
-
 # 1. Folha de Verificação — Inspeção Prévia e Execução do Serviço em Campo
 
 ### Objetivo
