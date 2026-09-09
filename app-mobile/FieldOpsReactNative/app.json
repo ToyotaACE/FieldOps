@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "FieldOps",
+    "slug": "fieldops-react-native",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "android": {"package": "com.fieldops.mobile"},
+    "ios": {"bundleIdentifier": "com.fieldops.mobile"}
+  }
+}
