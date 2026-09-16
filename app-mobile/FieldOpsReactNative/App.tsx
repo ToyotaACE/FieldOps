@@ -37,6 +37,7 @@ import { NonConformitiesPage } from './src/pages/NonConformitiesPage';
 import { ReportsPage } from './src/pages/ReportsPage';
 import { AuditPage } from './src/pages/AuditPage';
 import { SettingsPage } from './src/pages/SettingsPage';
+import { LoginPage } from './src/pages/LoginPage';
 
 import {
   inspectionsSeed,
@@ -75,6 +76,11 @@ export default function App() {
     drawerOpen,
     setDrawerOpen,
   ] = useState(false);
+
+  const [
+    isAuthenticated,
+    setIsAuthenticated,
+  ] = useState(true);
 
   /*
   |--------------------------------------------------------------------------
@@ -292,6 +298,24 @@ export default function App() {
 
   function openNewRecordModal() {
     setModalOpen(true);
+  }
+
+  function logout() {
+    setDrawerOpen(false);
+    setModalOpen(false);
+    setSelectedInspection(null);
+    setPage('Dashboard');
+    setQuery('');
+    setIsAuthenticated(false);
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+        <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.panel} />
+        <LoginPage colors={colors} onLogin={() => setIsAuthenticated(true)} />
+      </SafeAreaView>
+    );
   }
 
   /*
@@ -537,8 +561,14 @@ export default function App() {
             colors={
               colors
             }
-            onNew={
-              openNewRecordModal
+            darkMode={
+              darkMode
+            }
+            onToggleDarkMode={() =>
+              setDarkMode(
+                (currentValue) =>
+                  !currentValue,
+              )
             }
           />
         );
@@ -786,6 +816,9 @@ export default function App() {
         }
         onNavigate={
           navigate
+        }
+        onLogout={
+          logout
         }
       />
 

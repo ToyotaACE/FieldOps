@@ -133,13 +133,9 @@ export function InspectionsPage({
 
           <TouchableOpacity style={styles.approve} onPress={onApprove}>
             <CheckCircle2 size={17} color="#ffffff" />
-            <Text style={styles.buttonText}>Aprovar inspeção</Text>
+            <Text style={styles.buttonText}>Concluir inspeção</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.reject} onPress={onReject}>
-            <X size={17} color="#dc2626" />
-            <Text style={styles.rejectText}>Reprovar inspeção</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     );
@@ -156,10 +152,6 @@ export function InspectionsPage({
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.newButton} onPress={onNewInspection}>
-          <Plus size={17} color="#ffffff" />
-          <Text style={styles.buttonText}>Nova</Text>
-        </TouchableOpacity>
       </View>
 
       {inspections.length > 0 ? (

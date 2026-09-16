@@ -47,10 +47,6 @@ export function DashboardPage({
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={onNewInspection}>
-          <Plus size={17} color="#ffffff" />
-          <Text style={styles.primaryButtonText}>Nova</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.stats}>
