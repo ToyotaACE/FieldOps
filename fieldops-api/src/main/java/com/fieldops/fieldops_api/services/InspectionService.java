@@ -10,6 +10,10 @@ import com.fieldops.fieldops_api.repositories.InspectionTemplateVersionRepositor
 import com.fieldops.fieldops_api.repositories.UserRepository;
 
 import jakarta.transaction.Transactional;
+
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -173,6 +177,58 @@ public class InspectionService {
                 .orElseThrow(() -> new RuntimeException(
                         "Inspeção não encontrada."
                 ));
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null
+                || !(authentication.getPrincipal() instanceof User user)) {
+            throw new AccessDeniedException(
+                    "Usuário não autenticado."
+            );
+        }
+
+        InspectionStatus currentStatus = inspection.getStatus();
+
+        // Iniciar revisão: somente supervisor.
+        if (status == InspectionStatus.UNDER_REVIEW) {
+
+            if (user.getRole() != Role.SUPERVISOR) {
+                throw new AccessDeniedException(
+                        "Somente o supervisor pode iniciar a revisão."
+                );
+            }
+
+            if (currentStatus != InspectionStatus.COMPLETED) {
+                throw new IllegalStateException(
+                        "Somente inspeções concluídas podem entrar em revisão."
+                );
+            }
+        }
+
+        // Aprovar ou rejeitar: somente supervisor durante a revisão.
+        else if (status == InspectionStatus.APPROVED
+                || status == InspectionStatus.REJECTED) {
+
+            if (user.getRole() != Role.SUPERVISOR) {
+                throw new AccessDeniedException(
+                        "Somente o supervisor pode aprovar ou rejeitar."
+                );
+            }
+
+            if (currentStatus != InspectionStatus.UNDER_REVIEW) {
+                throw new IllegalStateException(
+                        "A inspeção precisa estar em revisão."
+                );
+            }
+        }
+
+        // Outras transições não são permitidas por este endpoint.
+        else {
+            throw new IllegalArgumentException(
+                    "Transição de status não permitida."
+            );
+        }
 
         inspection.setStatus(status);
 

@@ -40,6 +40,9 @@ public class TemplateItem {
     @Column(nullable = false)
     private Boolean required = false;
 
+    @Column(name = "requires_evidence", nullable = false)
+    private Boolean requiresEvidence = false;
+
     @Column(name = "requires_observation_on_nonconformity", nullable = false)
     private Boolean requiresObservationOnNonconformity = false;
 
@@ -58,6 +61,10 @@ public class TemplateItem {
 
         if (required == null) {
             required = false;
+        }
+
+        if (requiresEvidence == null) {
+            requiresEvidence = false;
         }
 
         if (requiresObservationOnNonconformity == null) {
@@ -91,6 +98,10 @@ public class TemplateItem {
 
     public Boolean getRequired() {
         return required;
+    }
+
+    public Boolean getRequiresEvidence() {
+        return requiresEvidence;
     }
 
     public Boolean getRequiresObservationOnNonconformity() {
@@ -131,6 +142,10 @@ public class TemplateItem {
 
     public void setRequired(Boolean required) {
         this.required = required;
+    }
+
+    public void setRequiresEvidence(Boolean requiresEvidence) {
+        this.requiresEvidence = requiresEvidence;
     }
 
     public void setRequiresObservationOnNonconformity(

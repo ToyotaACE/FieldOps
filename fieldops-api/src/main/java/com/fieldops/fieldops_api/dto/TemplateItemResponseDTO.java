@@ -14,6 +14,7 @@ public record TemplateItemResponseDTO(
     Boolean required,
     Boolean requiresObservationOnNonconformity,
     Boolean criticalOnNonconformity,
+    Boolean requiresEvidence,
     Integer displayOrder,
     LocalDateTime createdAt
 
