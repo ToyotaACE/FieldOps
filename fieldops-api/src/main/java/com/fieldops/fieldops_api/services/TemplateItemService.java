@@ -79,6 +79,10 @@ public class TemplateItemService {
                 )
         );
 
+        item.setRequiresEvidence(
+                Boolean.TRUE.equals(dto.requiresEvidence())
+        );
+
         item.setDisplayOrder(dto.displayOrder());
 
         item = itemRepository.save(item);
@@ -113,6 +117,10 @@ public class TemplateItemService {
                 Boolean.TRUE.equals(
                         dto.criticalOnNonconformity()
                 )
+        );
+
+        item.setRequiresEvidence(
+                Boolean.TRUE.equals(dto.requiresEvidence())
         );
 
         item.setDisplayOrder(dto.displayOrder());
@@ -171,7 +179,7 @@ public class TemplateItemService {
     }
 
     private TemplateItemResponseDTO toResponseDTO(
-            TemplateItem item) {
+        TemplateItem item) {
 
         return new TemplateItemResponseDTO(
                 item.getId(),
@@ -182,8 +190,9 @@ public class TemplateItemService {
                 item.getRequired(),
                 item.getRequiresObservationOnNonconformity(),
                 item.getCriticalOnNonconformity(),
+                item.getRequiresEvidence(),
                 item.getDisplayOrder(),
                 item.getCreatedAt()
         );
-    }
+        }
 }

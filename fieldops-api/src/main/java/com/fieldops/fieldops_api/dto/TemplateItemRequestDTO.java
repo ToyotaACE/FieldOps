@@ -24,6 +24,8 @@ public record TemplateItemRequestDTO(
 
     Boolean criticalOnNonconformity,
 
+    Boolean requiresEvidence,
+
     @NotNull(message = "A ordem do item é obrigatória")
     Integer displayOrder
 

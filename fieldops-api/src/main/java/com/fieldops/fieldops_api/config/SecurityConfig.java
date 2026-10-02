@@ -65,16 +65,22 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/template-items/**")
                 .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                // CRIAÇÃO DE INSPEÇÃO
+                // Cadastro de respostas
+                // A validação do técnico responsável é feita no Service.
+                .requestMatchers(HttpMethod.POST, "/api/v1/inspections/*/answers")
+                .hasRole("TECHNICIAN")
+
+                // Criação de inspeção
                 // Técnico não cria inspeções.
                 .requestMatchers(HttpMethod.POST, "/api/v1/inspections/**")
                 .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                // CONSULTA DE INSPEÇÕES
+                // Consulta de inspeções
                 .requestMatchers(HttpMethod.GET, "/api/v1/inspections/**")
                 .hasAnyRole("ADMIN", "SUPERVISOR", "TECHNICIAN")
 
                 // Atualização de status
+                // As permissões específicas são validadas no Service.
                 .requestMatchers(HttpMethod.PATCH, "/api/v1/inspections/**")
                 .hasAnyRole("ADMIN", "SUPERVISOR", "TECHNICIAN")
 
