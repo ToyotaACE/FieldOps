@@ -153,15 +153,17 @@ public class InspectionTemplateVersionService {
 
                 newItem.setRequiresObservationOnNonconformity(
                         oldItem.getRequiresObservationOnNonconformity()
-                );
+                        );
 
-                newItem.setCriticalOnNonconformity(
+                        newItem.setCriticalOnNonconformity(
                         oldItem.getCriticalOnNonconformity()
-                );
+                        );
 
-                newItem.setDisplayOrder(
-                        oldItem.getDisplayOrder()
-                );
+                        newItem.setRequiresEvidence(
+                        oldItem.getRequiresEvidence()
+                        );
+
+                        newItem.setDisplayOrder(oldItem.getDisplayOrder());
 
                 itemRepository.save(newItem);
             }
