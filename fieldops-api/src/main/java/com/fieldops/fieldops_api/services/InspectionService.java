@@ -6,7 +6,11 @@ import com.fieldops.fieldops_api.entities.*;
 import com.fieldops.fieldops_api.repositories.InspectionRepository;
 import com.fieldops.fieldops_api.repositories.InspectionSiteRepository;
 import com.fieldops.fieldops_api.repositories.EquipmentRepository;
+import com.fieldops.fieldops_api.repositories.InspectionAnswerRepository;
+import com.fieldops.fieldops_api.repositories.InspectionEvidenceRepository;
 import com.fieldops.fieldops_api.repositories.InspectionTemplateVersionRepository;
+import com.fieldops.fieldops_api.repositories.TemplateItemRepository;
+import com.fieldops.fieldops_api.repositories.TemplateSectionRepository;
 import com.fieldops.fieldops_api.repositories.UserRepository;
 
 import jakarta.transaction.Transactional;
@@ -26,19 +30,31 @@ public class InspectionService {
     private final InspectionSiteRepository siteRepository;
     private final EquipmentRepository equipmentRepository;
     private final UserRepository userRepository;
+    private final InspectionAnswerRepository answerRepository;
+    private final InspectionEvidenceRepository evidenceRepository;
+    private final TemplateSectionRepository sectionRepository;
+    private final TemplateItemRepository itemRepository;
 
     public InspectionService(
             InspectionRepository inspectionRepository,
             InspectionTemplateVersionRepository versionRepository,
             InspectionSiteRepository siteRepository,
             EquipmentRepository equipmentRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            InspectionAnswerRepository answerRepository,
+            InspectionEvidenceRepository evidenceRepository,
+            TemplateSectionRepository sectionRepository,
+            TemplateItemRepository itemRepository
     ) {
         this.inspectionRepository = inspectionRepository;
         this.versionRepository = versionRepository;
         this.siteRepository = siteRepository;
         this.equipmentRepository = equipmentRepository;
         this.userRepository = userRepository;
+        this.answerRepository = answerRepository;
+        this.evidenceRepository = evidenceRepository;
+        this.sectionRepository = sectionRepository;
+        this.itemRepository = itemRepository;
     }
 
     @Transactional
@@ -190,8 +206,54 @@ public class InspectionService {
 
         InspectionStatus currentStatus = inspection.getStatus();
 
+        // Iniciar execução: somente o técnico responsável.
+        if (status == InspectionStatus.IN_PROGRESS) {
+
+            if (user.getRole() != Role.TECHNICIAN) {
+                throw new AccessDeniedException(
+                        "Somente o técnico pode iniciar a inspeção."
+                );
+            }
+
+            if (!inspection.getTechnician().getId().equals(user.getId())) {
+                throw new AccessDeniedException(
+                        "Somente o técnico responsável pode iniciar a inspeção."
+                );
+            }
+
+            if (currentStatus != InspectionStatus.SCHEDULED) {
+                throw new IllegalStateException(
+                        "Somente inspeções agendadas podem ser iniciadas."
+                );
+            }
+        }
+
+        // Concluir execução: somente o técnico responsável.
+        else if (status == InspectionStatus.COMPLETED) {
+
+            if (user.getRole() != Role.TECHNICIAN) {
+                throw new AccessDeniedException(
+                        "Somente o técnico pode concluir a inspeção."
+                );
+            }
+
+            if (!inspection.getTechnician().getId().equals(user.getId())) {
+                throw new AccessDeniedException(
+                        "Somente o técnico responsável pode concluir a inspeção."
+                );
+            }
+
+            if (currentStatus != InspectionStatus.IN_PROGRESS) {
+                throw new IllegalStateException(
+                        "Somente inspeções em andamento podem ser concluídas."
+                );
+            }
+
+            validateInspectionCompletion(inspection);
+        }
+
         // Iniciar revisão: somente supervisor.
-        if (status == InspectionStatus.UNDER_REVIEW) {
+        else if (status == InspectionStatus.UNDER_REVIEW) {
 
             if (user.getRole() != Role.SUPERVISOR) {
                 throw new AccessDeniedException(
@@ -237,7 +299,73 @@ public class InspectionService {
         return toResponseDTO(updated);
     }
 
-    private InspectionResponseDTO toResponseDTO(Inspection inspection) {
+    private void validateInspectionCompletion(
+            Inspection inspection
+    ) {
+
+        Long templateVersionId =
+                inspection.getTemplateVersion().getId();
+
+        List<TemplateSection> sections =
+                sectionRepository
+                        .findByTemplateVersionIdOrderByDisplayOrderAsc(
+                                templateVersionId
+                        );
+
+        for (TemplateSection section : sections) {
+
+            List<TemplateItem> items =
+                    itemRepository
+                            .findBySectionIdOrderByDisplayOrderAsc(
+                                    section.getId()
+                            );
+
+            for (TemplateItem item : items) {
+
+                boolean required =
+                        Boolean.TRUE.equals(item.getRequired());
+
+                boolean requiresEvidence =
+                        Boolean.TRUE.equals(item.getRequiresEvidence());
+
+                if (!required && !requiresEvidence) {
+                    continue;
+                }
+
+                InspectionAnswer answer =
+                        answerRepository
+                                .findByInspectionIdAndTemplateItemId(
+                                        inspection.getId(),
+                                        item.getId()
+                                )
+                                .orElse(null);
+
+                if (answer == null) {
+
+                    throw new IllegalStateException(
+                            "O item obrigatório não foi respondido: "
+                                    + item.getLabel()
+                    );
+                }
+
+                if (requiresEvidence
+                        && !evidenceRepository
+                                .existsByInspectionAnswerId(
+                                        answer.getId()
+                                )) {
+
+                    throw new IllegalStateException(
+                            "O item exige evidência, mas nenhuma evidência foi enviada: "
+                                    + item.getLabel()
+                    );
+                }
+            }
+        }
+    }
+
+    private InspectionResponseDTO toResponseDTO(
+            Inspection inspection
+    ) {
 
         InspectionResponseDTO dto = new InspectionResponseDTO();
 
