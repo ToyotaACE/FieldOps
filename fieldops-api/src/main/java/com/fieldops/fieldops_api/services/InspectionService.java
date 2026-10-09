@@ -3,6 +3,7 @@ package com.fieldops.fieldops_api.services;
 import com.fieldops.fieldops_api.dto.InspectionRequestDTO;
 import com.fieldops.fieldops_api.dto.InspectionResponseDTO;
 import com.fieldops.fieldops_api.entities.*;
+import com.fieldops.fieldops_api.exceptions.BusinessException;
 import com.fieldops.fieldops_api.repositories.InspectionRepository;
 import com.fieldops.fieldops_api.repositories.InspectionSiteRepository;
 import com.fieldops.fieldops_api.repositories.EquipmentRepository;
@@ -244,7 +245,7 @@ public class InspectionService {
             }
 
             if (currentStatus != InspectionStatus.IN_PROGRESS) {
-                throw new IllegalStateException(
+                throw new BusinessException(
                         "Somente inspeções em andamento podem ser concluídas."
                 );
             }
@@ -299,9 +300,7 @@ public class InspectionService {
         return toResponseDTO(updated);
     }
 
-    private void validateInspectionCompletion(
-            Inspection inspection
-    ) {
+    private void validateInspectionCompletion(Inspection inspection) {
 
         Long templateVersionId =
                 inspection.getTemplateVersion().getId();
@@ -341,8 +340,7 @@ public class InspectionService {
                                 .orElse(null);
 
                 if (answer == null) {
-
-                    throw new IllegalStateException(
+                    throw new BusinessException(
                             "O item obrigatório não foi respondido: "
                                     + item.getLabel()
                     );
@@ -354,7 +352,7 @@ public class InspectionService {
                                         answer.getId()
                                 )) {
 
-                    throw new IllegalStateException(
+                    throw new BusinessException(
                             "O item exige evidência, mas nenhuma evidência foi enviada: "
                                     + item.getLabel()
                     );
