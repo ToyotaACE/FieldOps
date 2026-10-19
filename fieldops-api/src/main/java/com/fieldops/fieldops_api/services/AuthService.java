@@ -1,3 +1,4 @@
+
 package com.fieldops.fieldops_api.services;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -5,6 +6,9 @@ import org.springframework.stereotype.Service;
 
 import com.fieldops.fieldops_api.dto.LoginRequestDTO;
 import com.fieldops.fieldops_api.dto.LoginResponseDTO;
+import com.fieldops.fieldops_api.dto.RegisterRequestDTO;
+import com.fieldops.fieldops_api.dto.UserResponseDTO;
+import com.fieldops.fieldops_api.entities.Role;
 import com.fieldops.fieldops_api.entities.User;
 import com.fieldops.fieldops_api.exceptions.BusinessException;
 import com.fieldops.fieldops_api.repositories.UserRepository;
@@ -29,19 +33,20 @@ public class AuthService {
 
     public LoginResponseDTO login(LoginRequestDTO dto) {
 
-        User user = userRepository.findByEmail(dto.email())
-                .orElseThrow(() ->
-                        new BusinessException("E-mail ou senha inválidos"));
+        User user = userRepository.findByEmail(
+                dto.email().trim().toLowerCase()
+        ).orElseThrow(() ->
+                new BusinessException("E-mail ou senha inválidos")
+        );
 
         if (!user.getActive()) {
             throw new BusinessException("Usuário inativo");
         }
 
-        boolean passwordMatches =
-                passwordEncoder.matches(
-                        dto.password(),
-                        user.getPassword()
-                );
+        boolean passwordMatches = passwordEncoder.matches(
+                dto.password(),
+                user.getPassword()
+        );
 
         if (!passwordMatches) {
             throw new BusinessException("E-mail ou senha inválidos");
@@ -49,9 +54,37 @@ public class AuthService {
 
         String token = tokenService.generateToken(user);
 
-        return new LoginResponseDTO(
-                token,
-                "Bearer"
+        return new LoginResponseDTO(token, "Bearer");
+    }
+
+    public UserResponseDTO register(RegisterRequestDTO dto) {
+
+        String email = dto.email().trim().toLowerCase();
+
+        if (userRepository.existsByEmail(email)) {
+            throw new BusinessException("E-mail já cadastrado");
+        }
+
+        User user = new User();
+
+        user.setName(dto.name().trim());
+        user.setEmail(email);
+        user.setPassword(
+                passwordEncoder.encode(dto.password())
+        );
+        user.setRole(Role.TECHNICIAN);
+        user.setActive(true);
+
+        user = userRepository.save(user);
+
+        return new UserResponseDTO(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getRole(),
+                user.getActive(),
+                user.getCreatedAt(),
+                user.getUpdatedAt()
         );
     }
 }
