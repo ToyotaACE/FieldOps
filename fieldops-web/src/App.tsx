@@ -16,12 +16,21 @@ import type { Inspection, InspectionDraft, Resource, Status } from './types'
 import { seed, statuses, trend } from './data/mockData'
 import { downloadCsv } from './utils/downloadCsv'
 import { AuthScreen as AuthPage } from './pages/auth/AuthScreen'
+import { ClientsPage } from './pages/clients/ClientsPage'
+import { LocationsPage } from './pages/locations/LocationsPage'
+import { EquipmentPage } from './pages/equipment/EquipmentPage'
+import { CalendarPage as RealCalendarPage } from './pages/calendar/CalendarPage'
+import { InspectionTemplateBuilderPage } from './pages/templates/InspectionTemplateBuilderPage'
+import { NonconformitiesPage } from './pages/nonconformities/NonconformitiesPage'
+import { AuditPage as RealAuditPage } from './pages/audit/AuditPage'
+import { SettingsPage as RealSettingsPage } from './pages/settings/SettingsPage'
+import { UsersPermissionsPage } from './pages/users/UsersPermissionsPage'
 
 const menu = [
   ['Dashboard', LayoutDashboard], ['Inspeções', ClipboardCheck], ['Calendário', CalendarDays],
   ['Modelos de inspeção', ClipboardList], ['Clientes', Users], ['Locais', PackageCheck],
   ['Equipamentos', Wrench], ['Não conformidades', AlertTriangle], ['Relatórios', BarChart3],
-  ['Auditoria', ShieldCheck], ['Configurações', Settings]
+  ['Auditoria', ShieldCheck], ['Usuários', Users], ['Configurações', Settings]
 ] as const
 
 function App() {
@@ -305,11 +314,48 @@ function App() {
 
           {page === 'Clientes' && <ClientsPage />}
 
-            {page !== 'Dashboard' &&
-              page !== 'Inspeções' &&
-              page !== 'Clientes' && (
-                <ModulePage page={page} />
+          {page === 'Locais' && <LocationsPage />}
+
+          {page === 'Equipamentos' && <EquipmentPage />}
+
+          {page === 'Calendário' && (
+            <RealCalendarPage
+              inspections={filtered}
+              onNewInspection={() => setNewInspectionOpen(true)}
+              onOpenInspection={(inspection) => {
+                const found = filtered.find(
+                  (item) => String(item.id) === String(inspection.id)
+                )
+
+                if (found) {
+                  openInspection(found)
+                }
+              }}
+            />
           )}
+          {page === 'Modelos de inspeção' && <InspectionTemplateBuilderPage />}
+
+          {page === 'Não conformidades' && <NonconformitiesPage />}
+
+          {page === 'Auditoria' && <RealAuditPage />}
+
+          {page === 'Configurações' && <RealSettingsPage />}
+
+          {page === 'Usuários' && <UsersPermissionsPage />}
+
+          {page !== 'Dashboard' &&
+            page !== 'Inspeções' &&
+            page !== 'Clientes' &&
+            page !== 'Locais' &&
+            page !== 'Equipamentos' &&
+            page !== 'Calendário' &&
+            page !== 'Modelos de inspeção' &&
+            page !== 'Não conformidades' &&
+            page !== 'Auditoria' &&
+            page !== 'Configurações' &&
+            page !== 'Usuários' && (
+              <ModulePage page={page} />
+            )}
         </section>
       </main>
 
@@ -728,7 +774,6 @@ const resources: Record<string, Resource[]> = {
 }
 
 function ModulePage({ page }: { page: string }) {
-  if (page === 'Calendário') return <CalendarPage />
   if (page === 'Relatórios') return <ReportsPage />
   if (page === 'Auditoria') return <AuditPage />
   if (page === 'Configurações') return <SettingsPage />
@@ -945,66 +990,6 @@ function PageHeading({
         <Plus size={18} /> {action}
       </button>
     </div>
-  )
-}
-
-function CalendarPage() {
-  const [week, setWeek] = useState(0)
-  const days = ['Seg 10', 'Ter 11', 'Qua 12', 'Qui 13', 'Sex 14', 'Sáb 15', 'Dom 16']
-  const events = [
-    ['08:00', 'Toyota Industrial', 'Painel Elétrico PE-021', 'running'],
-    ['09:30', 'Metalúrgica Alpha', 'Compressor CP-001', 'review'],
-    ['13:00', 'Indústria NovaTech', 'Motor MTR-103', 'approved'],
-    ['15:30', 'Toyota Industrial', 'Bomba hidráulica BH-022', 'scheduled']
-  ]
-
-  return (
-    <>
-      <PageHeading
-        eyebrow="PLANEJAMENTO"
-        title="Calendário"
-        description="Organize a agenda das equipes e evite conflitos de atendimento."
-        action="Agendar inspeção"
-        onAction={() => downloadCsv(
-          'agenda-inspecoes.csv',
-          [['Horário', 'Cliente', 'Equipamento', 'Status'], ...events.map(event => event.slice(0, 4))]
-        )}
-      />
-
-      <div className="calendar-toolbar">
-        <button className="filter" onClick={() => setWeek(week - 1)}>‹ Semana anterior</button>
-        <strong>
-          {week === 0
-            ? '11 a 17 de agosto de 2026'
-            : week < 0
-              ? '04 a 10 de agosto de 2026'
-              : '18 a 24 de agosto de 2026'}
-        </strong>
-        <button className="filter" onClick={() => setWeek(week + 1)}>Próxima semana ›</button>
-        <button className="ghost" onClick={() => setWeek(0)}>
-          <CalendarCheck size={16} /> Hoje
-        </button>
-      </div>
-
-      <div className="panel calendar">
-        <div className="calendar-grid calendar-days">
-          {days.map(day => <b key={day}>{day}</b>)}
-        </div>
-        <div className="calendar-grid calendar-events">
-          {days.map((day, index) => (
-            <div className="calendar-day" key={day}>
-              {events.filter((_, eventIndex) => eventIndex === index % 4).map(event => (
-                <div className={'event ' + event[3]} key={event[0]}>
-                  <b>{event[0]}</b>
-                  <strong>{event[1]}</strong>
-                  <span>{event[2]}</span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
   )
 }
 
