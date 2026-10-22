@@ -16,6 +16,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 
 import {
+  ArrowLeft,
   AlertTriangle,
   Camera,
   CheckCircle2,
@@ -42,6 +43,7 @@ import {
 
 type ReportsPageProps = {
   colors: Palette;
+  onBack: () => void;
 
   onCreateNonConformity: (
     nonConformity: NonConformity,
@@ -124,6 +126,7 @@ const SEVERITIES:
 
 export function ReportsPage({
   colors,
+  onBack,
   onCreateNonConformity,
 }: ReportsPageProps) {
   const [
@@ -634,6 +637,15 @@ export function ReportsPage({
       }
       keyboardShouldPersistTaps="handled"
     >
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={onBack}
+        style={styles.backButton}
+      >
+        <ArrowLeft size={17} color="#2563eb" />
+        <Text style={styles.backButtonText}>Voltar para inspeções</Text>
+      </TouchableOpacity>
+
       <Text
         style={
           styles.eyebrow
