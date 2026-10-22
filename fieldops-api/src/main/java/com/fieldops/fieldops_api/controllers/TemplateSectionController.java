@@ -23,14 +23,12 @@ public class TemplateSectionController {
     @GetMapping("/{id}")
     public ResponseEntity<TemplateSectionResponseDTO> findById(
             @PathVariable Long id) {
-
         return ResponseEntity.ok(service.findById(id));
     }
 
     @GetMapping("/version/{versionId}")
     public ResponseEntity<List<TemplateSectionResponseDTO>> findByVersionId(
             @PathVariable Long versionId) {
-
         return ResponseEntity.ok(service.findByVersionId(versionId));
     }
 
@@ -38,10 +36,7 @@ public class TemplateSectionController {
     public ResponseEntity<TemplateSectionResponseDTO> create(
             @PathVariable Long versionId,
             @RequestBody TemplateSectionRequestDTO request) {
-
-        TemplateSectionResponseDTO response =
-                service.create(versionId, request);
-
+        TemplateSectionResponseDTO response = service.create(versionId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -49,10 +44,13 @@ public class TemplateSectionController {
     public ResponseEntity<TemplateSectionResponseDTO> update(
             @PathVariable Long id,
             @RequestBody TemplateSectionRequestDTO request) {
-
-        TemplateSectionResponseDTO response =
-                service.update(id, request);
-
+        TemplateSectionResponseDTO response = service.update(id, request);
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

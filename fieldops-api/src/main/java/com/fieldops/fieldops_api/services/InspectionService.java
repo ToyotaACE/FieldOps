@@ -124,6 +124,8 @@ public class InspectionService {
         inspection.setEquipment(equipment);
         inspection.setTechnician(technician);
         inspection.setScheduledDate(dto.getScheduledDate());
+        inspection.setScheduledTime(dto.getScheduledTime());
+        inspection.setPriority(dto.getPriority() == null ? InspectionPriority.NORMAL : dto.getPriority());
         inspection.setStatus(InspectionStatus.SCHEDULED);
 
         Inspection saved = inspectionRepository.save(inspection);
@@ -393,6 +395,9 @@ public class InspectionService {
         dto.setScheduledDate(
                 inspection.getScheduledDate()
         );
+
+        dto.setScheduledTime(inspection.getScheduledTime());
+        dto.setPriority(inspection.getPriority());
 
         dto.setStatus(
                 inspection.getStatus()
