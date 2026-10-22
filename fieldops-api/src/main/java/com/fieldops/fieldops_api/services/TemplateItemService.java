@@ -1,3 +1,4 @@
+
 package com.fieldops.fieldops_api.services;
 
 import java.util.List;
@@ -56,6 +57,14 @@ public class TemplateItemService {
 
         validateDraft(section);
 
+        Integer displayOrder = dto.displayOrder();
+
+        if (displayOrder == null) {
+            displayOrder = getNextDisplayOrder(sectionId);
+        } else {
+            validateDisplayOrder(sectionId, displayOrder);
+        }
+
         TemplateItem item = new TemplateItem();
 
         item.setSection(section);
@@ -83,7 +92,7 @@ public class TemplateItemService {
                 Boolean.TRUE.equals(dto.requiresEvidence())
         );
 
-        item.setDisplayOrder(dto.displayOrder());
+        item.setDisplayOrder(displayOrder);
 
         item = itemRepository.save(item);
 
@@ -98,6 +107,18 @@ public class TemplateItemService {
         TemplateItem item = findItem(id);
 
         validateDraft(item.getSection());
+
+        Integer displayOrder = dto.displayOrder();
+
+        if (displayOrder == null) {
+            displayOrder = item.getDisplayOrder();
+        }
+
+        validateDisplayOrder(
+                item.getSection().getId(),
+                displayOrder,
+                item.getId()
+        );
 
         item.setLabel(dto.label());
         item.setDescription(dto.description());
@@ -123,7 +144,7 @@ public class TemplateItemService {
                 Boolean.TRUE.equals(dto.requiresEvidence())
         );
 
-        item.setDisplayOrder(dto.displayOrder());
+        item.setDisplayOrder(displayOrder);
 
         item = itemRepository.save(item);
 
@@ -138,6 +159,75 @@ public class TemplateItemService {
         validateDraft(item.getSection());
 
         itemRepository.delete(item);
+    }
+
+    private Integer getNextDisplayOrder(Long sectionId) {
+
+        List<TemplateItem> items =
+                itemRepository.findBySectionIdOrderByDisplayOrderAsc(
+                        sectionId
+                );
+
+        int maxOrder = items.stream()
+                .map(TemplateItem::getDisplayOrder)
+                .filter(order -> order != null)
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(0);
+
+        return maxOrder + 1;
+    }
+
+    private void validateDisplayOrder(
+            Long sectionId,
+            Integer displayOrder) {
+
+        validateDisplayOrder(sectionId, displayOrder, null);
+    }
+
+    private void validateDisplayOrder(
+            Long sectionId,
+            Integer displayOrder,
+            Long currentItemId) {
+
+        if (displayOrder == null || displayOrder < 1) {
+            throw new BusinessException(
+                    "A ordem da questão deve ser maior que zero"
+            );
+        }
+
+        boolean orderExists =
+                itemRepository.existsBySectionIdAndDisplayOrder(
+                        sectionId,
+                        displayOrder
+                );
+
+        if (!orderExists) {
+            return;
+        }
+
+        if (currentItemId != null) {
+            boolean belongsToAnotherItem =
+                    itemRepository
+                            .findBySectionIdOrderByDisplayOrderAsc(
+                                    sectionId
+                            )
+                            .stream()
+                            .anyMatch(existing ->
+                                    existing.getDisplayOrder()
+                                            .equals(displayOrder)
+                                            && !existing.getId()
+                                                    .equals(currentItemId)
+                            );
+
+            if (!belongsToAnotherItem) {
+                return;
+            }
+        }
+
+        throw new BusinessException(
+                "Já existe uma questão com essa ordem nesta seção"
+        );
     }
 
     private TemplateItem findItem(Long id) {
@@ -179,7 +269,7 @@ public class TemplateItemService {
     }
 
     private TemplateItemResponseDTO toResponseDTO(
-        TemplateItem item) {
+            TemplateItem item) {
 
         return new TemplateItemResponseDTO(
                 item.getId(),
@@ -194,5 +284,5 @@ public class TemplateItemService {
                 item.getDisplayOrder(),
                 item.getCreatedAt()
         );
-        }
+    }
 }

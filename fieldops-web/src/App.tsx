@@ -25,6 +25,7 @@ import { NonconformitiesPage } from './pages/nonconformities/NonconformitiesPage
 import { AuditPage as RealAuditPage } from './pages/audit/AuditPage'
 import { SettingsPage as RealSettingsPage } from './pages/settings/SettingsPage'
 import { UsersPermissionsPage } from './pages/users/UsersPermissionsPage'
+import { InspectionManagementPage } from './pages/inspections/InspectionManagementPage'
 
 const menu = [
   ['Dashboard', LayoutDashboard], ['Inspeções', ClipboardCheck], ['Calendário', CalendarDays],
@@ -293,7 +294,7 @@ function App() {
             <Dashboard
               inspections={filtered}
               open={openInspection}
-              onNew={() => setNewInspectionOpen(true)}
+              onNew={() => setPage('Inspeções')}
               onViewAll={() => {
                 setPage('Inspeções')
                 setSelected(null)
@@ -301,16 +302,7 @@ function App() {
             />
           )}
 
-          {page === 'Inspeções' && (
-            <InspectionsPage
-              inspections={filtered}
-              open={openInspection}
-              selected={selected}
-              approve={approve}
-              reject={reject}
-              onNew={() => setNewInspectionOpen(true)}
-            />
-          )}
+          {page === 'Inspeções' && <InspectionManagementPage />}
 
           {page === 'Clientes' && <ClientsPage />}
 
@@ -321,7 +313,7 @@ function App() {
           {page === 'Calendário' && (
             <RealCalendarPage
               inspections={filtered}
-              onNewInspection={() => setNewInspectionOpen(true)}
+              onNewInspection={() => setPage('Inspeções')}
               onOpenInspection={(inspection) => {
                 const found = filtered.find(
                   (item) => String(item.id) === String(inspection.id)

@@ -1,9 +1,11 @@
 package com.fieldops.fieldops_api.dto;
 
 import com.fieldops.fieldops_api.entities.InspectionStatus;
+import com.fieldops.fieldops_api.entities.InspectionPriority;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public class InspectionResponseDTO {
 
@@ -17,6 +19,8 @@ public class InspectionResponseDTO {
     private Long technicianId;
 
     private LocalDate scheduledDate;
+    private LocalTime scheduledTime;
+    private InspectionPriority priority;
     private InspectionStatus status;
 
     private LocalDateTime createdAt;
@@ -85,6 +89,11 @@ public class InspectionResponseDTO {
     public void setScheduledDate(LocalDate scheduledDate) {
         this.scheduledDate = scheduledDate;
     }
+
+    public LocalTime getScheduledTime() { return scheduledTime; }
+    public void setScheduledTime(LocalTime scheduledTime) { this.scheduledTime = scheduledTime; }
+    public InspectionPriority getPriority() { return priority; }
+    public void setPriority(InspectionPriority priority) { this.priority = priority; }
 
     public InspectionStatus getStatus() {
         return status;

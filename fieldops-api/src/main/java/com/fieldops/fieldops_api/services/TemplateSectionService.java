@@ -11,6 +11,7 @@ import com.fieldops.fieldops_api.entities.InspectionTemplateVersion;
 import com.fieldops.fieldops_api.entities.TemplateSection;
 import com.fieldops.fieldops_api.exceptions.BusinessException;
 import com.fieldops.fieldops_api.repositories.InspectionTemplateVersionRepository;
+import com.fieldops.fieldops_api.repositories.TemplateItemRepository;
 import com.fieldops.fieldops_api.repositories.TemplateSectionRepository;
 
 @Service
@@ -19,20 +20,19 @@ public class TemplateSectionService {
 
     private final TemplateSectionRepository sectionRepository;
     private final InspectionTemplateVersionRepository versionRepository;
+    private final TemplateItemRepository itemRepository;
 
     public TemplateSectionService(
             TemplateSectionRepository sectionRepository,
-            InspectionTemplateVersionRepository versionRepository) {
-
+            InspectionTemplateVersionRepository versionRepository,
+            TemplateItemRepository itemRepository) {
         this.sectionRepository = sectionRepository;
         this.versionRepository = versionRepository;
+        this.itemRepository = itemRepository;
     }
 
-    public List<TemplateSectionResponseDTO> findByVersionId(
-            Long versionId) {
-
+    public List<TemplateSectionResponseDTO> findByVersionId(Long versionId) {
         findVersion(versionId);
-
         return sectionRepository
                 .findByTemplateVersionIdOrderByDisplayOrderAsc(versionId)
                 .stream()
@@ -41,105 +41,84 @@ public class TemplateSectionService {
     }
 
     public TemplateSectionResponseDTO findById(Long id) {
-
-        TemplateSection section = findSection(id);
-
-        return toResponseDTO(section);
+        return toResponseDTO(findSection(id));
     }
 
     @Transactional
     public TemplateSectionResponseDTO create(
             Long versionId,
             TemplateSectionRequestDTO dto) {
-
         InspectionTemplateVersion version = findVersion(versionId);
-
         validateDraft(version);
 
         TemplateSection section = new TemplateSection();
-
         section.setTemplateVersion(version);
         section.setTitle(dto.title());
         section.setDescription(dto.description());
         section.setDisplayOrder(dto.displayOrder());
 
-        section = sectionRepository.save(section);
-
-        return toResponseDTO(section);
+        return toResponseDTO(sectionRepository.save(section));
     }
 
     @Transactional
     public TemplateSectionResponseDTO update(
             Long id,
             TemplateSectionRequestDTO dto) {
-
         TemplateSection section = findSection(id);
-
         validateDraft(section.getTemplateVersion());
 
         section.setTitle(dto.title());
         section.setDescription(dto.description());
         section.setDisplayOrder(dto.displayOrder());
 
-        section = sectionRepository.save(section);
-
-        return toResponseDTO(section);
+        return toResponseDTO(sectionRepository.save(section));
     }
 
     @Transactional
     public void delete(Long id) {
-
         TemplateSection section = findSection(id);
-
         validateDraft(section.getTemplateVersion());
+
+        if (itemRepository.existsBySectionId(id)) {
+            throw new BusinessException(
+                    "Não é possível excluir uma seção que possui questões. Exclua as questões primeiro."
+            );
+        }
 
         sectionRepository.delete(section);
     }
 
     private TemplateSection findSection(Long id) {
-
         return sectionRepository.findById(id)
-                .orElseThrow(() ->
-                        new BusinessException(
-                                "Seção do modelo não encontrada"
-                        ));
+                .orElseThrow(() -> new BusinessException(
+                        "Seção do modelo não encontrada"));
     }
 
     private InspectionTemplateVersion findVersion(Long id) {
-
         return versionRepository.findById(id)
-                .orElseThrow(() ->
-                        new BusinessException(
-                                "Versão do modelo não encontrada"
-                        ));
+                .orElseThrow(() -> new BusinessException(
+                        "Versão do modelo não encontrada"));
     }
 
-    private void validateDraft(
-            InspectionTemplateVersion version) {
-
+    private void validateDraft(InspectionTemplateVersion version) {
         if (Boolean.TRUE.equals(version.getPublished())) {
             throw new BusinessException(
-                    "Não é possível alterar uma versão publicada"
-            );
+                    "Não é possível alterar uma versão publicada");
         }
 
         if (!version.getTemplate().getActive()) {
             throw new BusinessException(
-                    "Não é possível alterar um modelo inativo"
-            );
+                    "Não é possível alterar um modelo inativo");
         }
     }
 
-    private TemplateSectionResponseDTO toResponseDTO(
-            TemplateSection section) {
-
+    private TemplateSectionResponseDTO toResponseDTO(TemplateSection section) {
         return new TemplateSectionResponseDTO(
                 section.getId(),
                 section.getTemplateVersion().getId(),
                 section.getTitle(),
                 section.getDescription(),
                 section.getDisplayOrder(),
-                section.getCreatedAt()
-        );
+                section.getCreatedAt());
     }
 }
