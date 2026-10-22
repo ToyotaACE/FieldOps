@@ -13,6 +13,7 @@ import { palettes } from './src/theme/colors';
 export default function App() {
   const [showAuth, setShowAuth] = useState(true);
   const [page, setPage] = useState<Page>('Dashboard');
+  const [showReports, setShowReports] = useState(false);
   const [dark, setDark] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -30,13 +31,15 @@ export default function App() {
 
   function navigate(next: Page) {
     setPage(next);
+    setShowReports(false);
     setSelected(null);
     setDrawerOpen(false);
   }
 
   function openInspection(item: Inspection) {
     setSelected(item);
-    setPage('Inspeções');
+    setPage('Inspeções e relatórios');
+    setShowReports(false);
   }
 
   function setInspectionStatus(status: Status) {
@@ -51,12 +54,12 @@ export default function App() {
       <StatusBar barStyle={dark ? 'light-content' : 'dark-content'} backgroundColor={colors.panel} />
       <View style={[styles.header, { backgroundColor: colors.panel, borderBottomColor: colors.border }]}> 
         <TouchableOpacity onPress={() => setDrawerOpen(true)} style={styles.iconButton}><Menu size={23} color={colors.text}/></TouchableOpacity>
-        <View style={styles.headerTitleWrap}><Text style={[styles.headerKicker,{color:colors.muted}]}>OPERAÇÕES</Text><Text style={[styles.headerTitle,{color:colors.text}]} numberOfLines={1}>{page}</Text></View>
+        <View style={styles.headerTitleWrap}><Text style={[styles.headerKicker,{color:colors.muted}]}>OPERAÇÕES</Text><Text style={[styles.headerTitle,{color:colors.text}]} numberOfLines={1}>{showReports ? 'Relatórios' : page}</Text></View>
         <TouchableOpacity onPress={() => setDark(v => !v)} style={styles.iconButton}>{dark ? <Sun size={20} color={colors.muted}/> : <Moon size={20} color={colors.muted}/>}</TouchableOpacity>
         <TouchableOpacity onPress={() => Alert.alert('Notificações', 'Nenhuma nova notificação.')} style={styles.iconButton}><Bell size={20} color={colors.muted}/><View style={styles.notificationDot}/></TouchableOpacity>
       </View>
 
-      {(page === 'Dashboard' || page === 'Inspeções') && !selected && (
+      {(page === 'Dashboard' || (page === 'Inspeções e relatórios' && !showReports)) && !selected && (
         <View style={[styles.searchBar,{backgroundColor:colors.panel,borderColor:colors.border}]}>
           <Search size={18} color={colors.muted}/>
           <TextInput value={query} onChangeText={setQuery} placeholder="Buscar no FieldOps..." placeholderTextColor={colors.muted} style={[styles.searchInput,{color:colors.text}]}/>
@@ -65,11 +68,12 @@ export default function App() {
 
       <View style={styles.body}>
         {page === 'Dashboard' && <DashboardScreen colors={colors} inspections={filtered} onOpenInspection={openInspection} onNewInspection={() => Alert.alert('Nova inspeção', 'Fluxo preparado para integração com seu backend.')}/>} 
-        {page === 'Inspeções' && <InspectionsScreen colors={colors} inspections={filtered} selected={selected} onOpenInspection={openInspection} onBack={() => setSelected(null)} onApprove={() => setInspectionStatus('Aprovada')} onReject={() => setInspectionStatus('Reprovada')} onNewInspection={() => Alert.alert('Nova inspeção', 'Fluxo preparado para integração com seu backend.')}/>} 
-        {page !== 'Dashboard' && page !== 'Inspeções' && <GenericScreen page={page} colors={colors} onNew={() => setModalOpen(true)}/>} 
+        {page === 'Inspeções e relatórios' && !showReports && <InspectionsScreen colors={colors} inspections={filtered} selected={selected} onOpenInspection={openInspection} onBack={() => setSelected(null)} onApprove={() => setInspectionStatus('Aprovada')} onReject={() => setInspectionStatus('Reprovada')} onNewInspection={() => Alert.alert('Nova inspeção', 'Fluxo preparado para integração com seu backend.')} onOpenReports={() => setShowReports(true)}/>}
+        {page === 'Inspeções e relatórios' && showReports && <GenericScreen page="Relatórios" colors={colors} onNew={() => setModalOpen(true)} onBack={() => setShowReports(false)}/>}
+        {page !== 'Dashboard' && page !== 'Inspeções e relatórios' && <GenericScreen page={page} colors={colors} onNew={() => setModalOpen(true)}/>}
       </View>
 
-      <AppDrawer visible={drawerOpen} page={page} colors={colors} onClose={() => setDrawerOpen(false)} onNavigate={navigate} onLogout={() => { setPage('Dashboard'); setSelected(null); setDrawerOpen(false); setShowAuth(true); }}/>
+      <AppDrawer visible={drawerOpen} page={page} colors={colors} onClose={() => setDrawerOpen(false)} onNavigate={navigate} onLogout={() => { setPage('Dashboard'); setShowReports(false); setSelected(null); setDrawerOpen(false); setShowAuth(true); }}/>
 
       <Modal visible={modalOpen} transparent animationType="fade" onRequestClose={() => setModalOpen(false)}>
         <View style={styles.overlay}><View style={[styles.modal,{backgroundColor:colors.panel}]}>
