@@ -3,6 +3,7 @@ package com.fieldops.fieldops_api.entities;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "inspections")
@@ -37,6 +38,13 @@ public class Inspection {
 
     @Column(name = "scheduled_date", nullable = false)
     private LocalDate scheduledDate;
+
+    @Column(name = "scheduled_time", nullable = false)
+    private LocalTime scheduledTime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private InspectionPriority priority = InspectionPriority.NORMAL;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -121,6 +129,14 @@ public class Inspection {
     public void setScheduledDate(LocalDate scheduledDate) {
         this.scheduledDate = scheduledDate;
     }
+
+    public LocalTime getScheduledTime() { return scheduledTime; }
+
+    public void setScheduledTime(LocalTime scheduledTime) { this.scheduledTime = scheduledTime; }
+
+    public InspectionPriority getPriority() { return priority; }
+
+    public void setPriority(InspectionPriority priority) { this.priority = priority; }
 
     public InspectionStatus getStatus() {
         return status;

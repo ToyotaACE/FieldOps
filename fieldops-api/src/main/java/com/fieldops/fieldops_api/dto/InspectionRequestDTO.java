@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import com.fieldops.fieldops_api.entities.InspectionPriority;
 
 public class InspectionRequestDTO {
 
@@ -31,6 +33,12 @@ public class InspectionRequestDTO {
     @NotNull
     @FutureOrPresent
     private LocalDate scheduledDate;
+
+    @NotNull
+    private LocalTime scheduledTime;
+
+    @NotNull
+    private InspectionPriority priority = InspectionPriority.NORMAL;
 
     public String getTitle() {
         return title;
@@ -79,6 +87,14 @@ public class InspectionRequestDTO {
     public void setTechnicianId(Long technicianId) {
         this.technicianId = technicianId;
     }
+
+    public LocalTime getScheduledTime() { return scheduledTime; }
+
+    public void setScheduledTime(LocalTime scheduledTime) { this.scheduledTime = scheduledTime; }
+
+    public InspectionPriority getPriority() { return priority; }
+
+    public void setPriority(InspectionPriority priority) { this.priority = priority; }
 
     public LocalDate getScheduledDate() {
         return scheduledDate;
