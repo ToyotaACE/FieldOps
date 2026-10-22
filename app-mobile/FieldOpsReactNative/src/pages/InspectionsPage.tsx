@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { CheckCircle2, Download, Plus, QrCode, X } from 'lucide-react-native';
+import { BarChart3, CheckCircle2, Download, Plus, QrCode, X } from 'lucide-react-native';
 
 import { InspectionCard } from '../components/InspectionCard';
 import { StatusBadge } from '../components/StatusBadge';
@@ -16,6 +16,7 @@ type InspectionsPageProps = {
   onApprove: () => void;
   onReject: () => void;
   onNewInspection: () => void;
+  onOpenReports: () => void;
 };
 
 const checklistItems = [
@@ -34,6 +35,7 @@ export function InspectionsPage({
   onApprove,
   onReject,
   onNewInspection,
+  onOpenReports,
 }: InspectionsPageProps) {
   if (selected) {
     const inspectionInformation = [
@@ -151,7 +153,14 @@ export function InspectionsPage({
             Planeje, acompanhe e revise inspeções técnicas.
           </Text>
         </View>
-
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={onOpenReports}
+          style={styles.reportButton}
+        >
+          <BarChart3 size={16} color="#ffffff" />
+          <Text style={styles.reportButtonText}>Relatório</Text>
+        </TouchableOpacity>
       </View>
 
       {inspections.length > 0 ? (

@@ -27,14 +27,15 @@ import {
 import { AppDrawer } from './src/components/AppDrawer';
 
 import { DashboardPage } from './src/pages/DashboardPage';
-import { InspectionsPage } from './src/pages/InspectionsPage';
+import {
+  InspectionsReportsPage,
+} from './src/pages/InspectionsReportsPage';
 import { CalendarPage } from './src/pages/CalendarPage';
 import { InspectionModelsPage } from './src/pages/InspectionModelsPage';
 import { ClientsPage } from './src/pages/ClientsPage';
 import { LocationsPage } from './src/pages/LocationsPage';
 import { EquipmentPage } from './src/pages/EquipmentPage';
 import { NonConformitiesPage } from './src/pages/NonConformitiesPage';
-import { ReportsPage } from './src/pages/ReportsPage';
 import { AuditPage } from './src/pages/AuditPage';
 import { SettingsPage } from './src/pages/SettingsPage';
 import { LoginPage } from './src/pages/LoginPage';
@@ -71,6 +72,11 @@ export default function App() {
   ] = useState<Page>(
     'Dashboard',
   );
+
+  const [
+    showReports,
+    setShowReports,
+  ] = useState(false);
 
   const [
     drawerOpen,
@@ -211,6 +217,8 @@ export default function App() {
   ) {
     setPage(nextPage);
 
+    setShowReports(false);
+
     setSelectedInspection(
       null,
     );
@@ -231,7 +239,8 @@ export default function App() {
       inspection,
     );
 
-    setPage('Inspeções');
+    setPage('Inspeções e relatórios');
+    setShowReports(false);
   }
 
   /*
@@ -359,11 +368,20 @@ export default function App() {
       |--------------------------------------------------------------------------
       */
 
-      case 'Inspeções':
+      case 'Inspeções e relatórios':
         return (
-          <InspectionsPage
+          <InspectionsReportsPage
             colors={
               colors
+            }
+            showReports={
+              showReports
+            }
+            onOpenReports={() =>
+              setShowReports(true)
+            }
+            onBackToInspections={() =>
+              setShowReports(false)
             }
             inspections={
               filteredInspections
@@ -394,6 +412,9 @@ export default function App() {
                 'Nova inspeção',
                 'As inspeções deverão ser programadas pelo supervisor.',
               )
+            }
+            onCreateNonConformity={
+              createNonConformity
             }
           />
         );
@@ -512,27 +533,6 @@ export default function App() {
 
       /*
       |--------------------------------------------------------------------------
-      | RELATÓRIOS
-      |--------------------------------------------------------------------------
-      |
-      | Cria o relatório e envia para App.tsx.
-      |
-      */
-
-      case 'Relatórios':
-        return (
-          <ReportsPage
-            colors={
-              colors
-            }
-            onCreateNonConformity={
-              createNonConformity
-            }
-          />
-        );
-
-      /*
-      |--------------------------------------------------------------------------
       | AUDITORIA
       |--------------------------------------------------------------------------
       */
@@ -589,7 +589,8 @@ export default function App() {
       page ===
         'Dashboard' ||
       page ===
-        'Inspeções'
+        'Inspeções e relatórios' &&
+      !showReports
     ) &&
     !selectedInspection;
 

@@ -8,6 +8,21 @@ export const reportsPageStyles =
       paddingBottom: 100,
     },
 
+    backButton: {
+      minHeight: 40,
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 7,
+      marginBottom: 12,
+    },
+
+    backButtonText: {
+      color: '#2563eb',
+      fontSize: 12,
+      fontWeight: '800',
+    },
+
     header: {
       marginBottom: 18,
     },

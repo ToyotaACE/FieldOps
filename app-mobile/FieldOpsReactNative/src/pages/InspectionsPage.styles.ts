@@ -8,6 +8,8 @@ export const inspectionsPageStyles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '900', marginTop: 4 },
   subtitle: { fontSize: 11, lineHeight: 17, marginTop: 5 },
   newButton: { backgroundColor: '#2563eb', height: 40, borderRadius: 9, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  reportButton: { backgroundColor: '#2563eb', height: 40, borderRadius: 9, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 },
+  reportButtonText: { color: '#ffffff', fontSize: 11, fontWeight: '900' },
   buttonText: { color: '#ffffff', fontSize: 11, fontWeight: '900' },
   back: { color: '#2563eb', fontSize: 12, fontWeight: '800', marginBottom: 16 },
   statusWrapper: { marginTop: 10 },

@@ -1,13 +1,12 @@
 export type Page =
   | 'Dashboard'
-  | 'Inspeções'
+  | 'Inspeções e relatórios'
   | 'Calendário'
   | 'Modelos de inspeção'
   | 'Clientes'
   | 'Locais'
   | 'Equipamentos'
   | 'Não conformidades'
-  | 'Relatórios'
   | 'Auditoria'
   | 'Configurações';
 
