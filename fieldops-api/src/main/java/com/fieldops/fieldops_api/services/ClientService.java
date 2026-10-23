@@ -1,8 +1,10 @@
+
 package com.fieldops.fieldops_api.services;
 
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fieldops.fieldops_api.dto.ClientRequestDTO;
 import com.fieldops.fieldops_api.dto.ClientResponseDTO;
@@ -14,11 +16,16 @@ import com.fieldops.fieldops_api.repositories.ClientRepository;
 public class ClientService {
 
     private final ClientRepository repository;
+    private final AuditLogService auditLogService;
 
-    public ClientService(ClientRepository repository) {
+    public ClientService(
+            ClientRepository repository,
+            AuditLogService auditLogService) {
         this.repository = repository;
+        this.auditLogService = auditLogService;
     }
 
+    @Transactional(readOnly = true)
     public List<ClientResponseDTO> findAll() {
         return repository.findAll()
                 .stream()
@@ -26,8 +33,8 @@ public class ClientService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public ClientResponseDTO findById(Long id) {
-
         Client client = repository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Cliente não encontrado"));
@@ -35,8 +42,8 @@ public class ClientService {
         return toResponseDTO(client);
     }
 
+    @Transactional
     public ClientResponseDTO create(ClientRequestDTO dto) {
-
         Client client = new Client();
 
         client.setName(dto.name());
@@ -45,11 +52,18 @@ public class ClientService {
 
         client = repository.save(client);
 
+        auditLogService.record(
+                "CREATE",
+                "Client",
+                client.getId(),
+                "Cliente cadastrado: " + client.getName()
+        );
+
         return toResponseDTO(client);
     }
 
+    @Transactional
     public ClientResponseDTO update(Long id, ClientRequestDTO dto) {
-
         Client client = repository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Cliente não encontrado"));
@@ -59,11 +73,18 @@ public class ClientService {
 
         client = repository.save(client);
 
+        auditLogService.record(
+                "UPDATE",
+                "Client",
+                client.getId(),
+                "Dados do cliente atualizados: " + client.getName()
+        );
+
         return toResponseDTO(client);
     }
 
+    @Transactional
     public ClientResponseDTO deactivate(Long id) {
-
         Client client = repository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Cliente não encontrado"));
@@ -72,11 +93,18 @@ public class ClientService {
 
         client = repository.save(client);
 
+        auditLogService.record(
+                "DEACTIVATE",
+                "Client",
+                client.getId(),
+                "Cliente desativado: " + client.getName()
+        );
+
         return toResponseDTO(client);
     }
 
+    @Transactional
     public ClientResponseDTO activate(Long id) {
-
         Client client = repository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Cliente não encontrado"));
@@ -85,11 +113,17 @@ public class ClientService {
 
         client = repository.save(client);
 
+        auditLogService.record(
+                "ACTIVATE",
+                "Client",
+                client.getId(),
+                "Cliente ativado: " + client.getName()
+        );
+
         return toResponseDTO(client);
     }
 
     private ClientResponseDTO toResponseDTO(Client client) {
-
         return new ClientResponseDTO(
                 client.getId(),
                 client.getName(),
