@@ -1,3 +1,4 @@
+
 package com.fieldops.fieldops_api.services;
 
 import com.fieldops.fieldops_api.dto.InspectionRequestDTO;
@@ -35,6 +36,7 @@ public class InspectionService {
     private final InspectionEvidenceRepository evidenceRepository;
     private final TemplateSectionRepository sectionRepository;
     private final TemplateItemRepository itemRepository;
+    private final AuditLogService auditLogService;
 
     public InspectionService(
             InspectionRepository inspectionRepository,
@@ -45,7 +47,8 @@ public class InspectionService {
             InspectionAnswerRepository answerRepository,
             InspectionEvidenceRepository evidenceRepository,
             TemplateSectionRepository sectionRepository,
-            TemplateItemRepository itemRepository
+            TemplateItemRepository itemRepository,
+            AuditLogService auditLogService
     ) {
         this.inspectionRepository = inspectionRepository;
         this.versionRepository = versionRepository;
@@ -56,6 +59,7 @@ public class InspectionService {
         this.evidenceRepository = evidenceRepository;
         this.sectionRepository = sectionRepository;
         this.itemRepository = itemRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -125,10 +129,21 @@ public class InspectionService {
         inspection.setTechnician(technician);
         inspection.setScheduledDate(dto.getScheduledDate());
         inspection.setScheduledTime(dto.getScheduledTime());
-        inspection.setPriority(dto.getPriority() == null ? InspectionPriority.NORMAL : dto.getPriority());
+        inspection.setPriority(
+                dto.getPriority() == null
+                        ? InspectionPriority.NORMAL
+                        : dto.getPriority()
+        );
         inspection.setStatus(InspectionStatus.SCHEDULED);
 
         Inspection saved = inspectionRepository.save(inspection);
+
+        auditLogService.record(
+                "CREATE",
+                "Inspection",
+                saved.getId(),
+                "Inspeção criada: " + saved.getTitle()
+        );
 
         return toResponseDTO(saved);
     }
@@ -298,6 +313,18 @@ public class InspectionService {
         inspection.setStatus(status);
 
         Inspection updated = inspectionRepository.save(inspection);
+
+        auditLogService.record(
+                "STATUS_CHANGE",
+                "Inspection",
+                updated.getId(),
+                "Status da inspeção alterado de "
+                        + currentStatus
+                        + " para "
+                        + status
+                        + ". Inspeção: "
+                        + updated.getTitle()
+        );
 
         return toResponseDTO(updated);
     }

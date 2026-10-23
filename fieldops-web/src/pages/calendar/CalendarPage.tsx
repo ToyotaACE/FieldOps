@@ -59,11 +59,20 @@ const STATUS_LABELS: Record<string, string> = {
   UNDER_REVIEW: 'Em revisão',
   APPROVED: 'Aprovada',
   REJECTED: 'Reprovada',
-  CANCELLED: 'Cancelada'
+  CANCELLED: 'Cancelada',
+  SCHEDULED: 'Planejada',
+  COMPLETED: 'Concluída'
 }
 
 function getStatusClass(status?: string) {
   switch (status) {
+    case 'SCHEDULED':
+    case 'PLANNED':
+      return 'calendar-status calendar-status-planned'
+
+    case 'COMPLETED':
+      return 'calendar-status calendar-status-review'
+
     case 'IN_PROGRESS':
       return 'calendar-status calendar-status-progress'
 
@@ -87,7 +96,8 @@ function getStatusClass(status?: string) {
 function parseDate(value?: string) {
   if (!value) return null
 
-  const date = new Date(value)
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value)
+  const date = dateOnly ? new Date(Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10))) : new Date(value)
 
   if (Number.isNaN(date.getTime())) {
     return null
@@ -185,6 +195,11 @@ export function CalendarPage({
       )
     })
   }
+
+  const monthInspections = useMemo(() => inspections.filter((inspection) => {
+    const date = parseDate(inspection.scheduledDate ?? inspection.date)
+    return Boolean(date && date.getFullYear() === currentYear && date.getMonth() === currentMonth)
+  }), [inspections, currentYear, currentMonth])
 
   function isToday(day: number) {
     return (
@@ -369,11 +384,11 @@ export function CalendarPage({
           </div>
 
           <span className="calendar-summary-count">
-            {inspections.length}
+            {monthInspections.length}
           </span>
         </div>
 
-        {inspections.length === 0 ? (
+        {monthInspections.length === 0 ? (
           <div className="calendar-empty-state">
             <CalendarDays size={42} />
 
@@ -386,7 +401,7 @@ export function CalendarPage({
           </div>
         ) : (
           <div className="calendar-inspection-list">
-            {inspections.map((inspection) => (
+            {monthInspections.map((inspection) => (
               <button
                 key={inspection.id}
                 type="button"

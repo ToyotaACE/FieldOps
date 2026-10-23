@@ -1,3 +1,4 @@
+
 package com.fieldops.fieldops_api.services;
 
 import java.util.List;
@@ -19,17 +20,19 @@ public class InspectionSiteService {
 
     private final InspectionSiteRepository siteRepository;
     private final ClientRepository clientRepository;
+    private final AuditLogService auditLogService;
 
     public InspectionSiteService(
             InspectionSiteRepository siteRepository,
-            ClientRepository clientRepository) {
+            ClientRepository clientRepository,
+            AuditLogService auditLogService) {
 
         this.siteRepository = siteRepository;
         this.clientRepository = clientRepository;
+        this.auditLogService = auditLogService;
     }
 
     public List<InspectionSiteResponseDTO> findAll() {
-
         return siteRepository.findAll()
                 .stream()
                 .map(this::toResponseDTO)
@@ -37,7 +40,6 @@ public class InspectionSiteService {
     }
 
     public List<InspectionSiteResponseDTO> findByClientId(Long clientId) {
-
         return siteRepository.findByClientId(clientId)
                 .stream()
                 .map(this::toResponseDTO)
@@ -45,7 +47,6 @@ public class InspectionSiteService {
     }
 
     public InspectionSiteResponseDTO findById(Long id) {
-
         InspectionSite site = siteRepository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Local não encontrado"));
@@ -55,19 +56,16 @@ public class InspectionSiteService {
 
     @Transactional
     public InspectionSiteResponseDTO create(InspectionSiteRequestDTO dto) {
-
         Client client = clientRepository.findById(dto.clientId())
                 .orElseThrow(() ->
                         new BusinessException("Cliente não encontrado"));
 
         if (!client.getActive()) {
             throw new BusinessException(
-                    "Não é possível cadastrar local para cliente inativo"
-            );
+                    "Não é possível cadastrar local para cliente inativo");
         }
 
         InspectionSite site = new InspectionSite();
-
         site.setName(dto.name());
         site.setAddress(dto.address());
         site.setCity(dto.city());
@@ -76,6 +74,13 @@ public class InspectionSiteService {
         site.setActive(true);
 
         site = siteRepository.save(site);
+
+        auditLogService.record(
+                "CREATE",
+                "InspectionSite",
+                site.getId(),
+                "Local cadastrado: " + site.getName()
+        );
 
         return toResponseDTO(site);
     }
@@ -95,8 +100,7 @@ public class InspectionSiteService {
 
         if (!client.getActive()) {
             throw new BusinessException(
-                    "Não é possível vincular o local a um cliente inativo"
-            );
+                    "Não é possível vincular o local a um cliente inativo");
         }
 
         site.setName(dto.name());
@@ -107,39 +111,55 @@ public class InspectionSiteService {
 
         site = siteRepository.save(site);
 
+        auditLogService.record(
+                "UPDATE",
+                "InspectionSite",
+                site.getId(),
+                "Dados do local atualizados: " + site.getName()
+        );
+
         return toResponseDTO(site);
     }
 
     @Transactional
     public InspectionSiteResponseDTO deactivate(Long id) {
-
         InspectionSite site = siteRepository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Local não encontrado"));
 
         site.setActive(false);
-
         site = siteRepository.save(site);
+
+        auditLogService.record(
+                "DEACTIVATE",
+                "InspectionSite",
+                site.getId(),
+                "Local desativado: " + site.getName()
+        );
 
         return toResponseDTO(site);
     }
 
     @Transactional
     public InspectionSiteResponseDTO activate(Long id) {
-
         InspectionSite site = siteRepository.findById(id)
                 .orElseThrow(() ->
                         new BusinessException("Local não encontrado"));
 
         if (!site.getClient().getActive()) {
             throw new BusinessException(
-                    "Não é possível ativar um local de cliente inativo"
-            );
+                    "Não é possível ativar um local de cliente inativo");
         }
 
         site.setActive(true);
-
         site = siteRepository.save(site);
+
+        auditLogService.record(
+                "ACTIVATE",
+                "InspectionSite",
+                site.getId(),
+                "Local ativado: " + site.getName()
+        );
 
         return toResponseDTO(site);
     }

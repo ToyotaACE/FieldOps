@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Activity, AlertTriangle, BarChart3, Bell, CalendarDays, CheckCircle2,
   ChevronDown, ClipboardCheck, ClipboardList, Clock3, Download, FileBarChart,
@@ -13,7 +13,7 @@ import {
 } from 'recharts'
 
 import type { Inspection, InspectionDraft, Resource, Status } from './types'
-import { seed, statuses, trend } from './data/mockData'
+import { seed } from './data/mockData'
 import { downloadCsv } from './utils/downloadCsv'
 import { AuthScreen as AuthPage } from './pages/auth/AuthScreen'
 import { ClientsPage } from './pages/clients/ClientsPage'
@@ -26,6 +26,76 @@ import { AuditPage as RealAuditPage } from './pages/audit/AuditPage'
 import { SettingsPage as RealSettingsPage } from './pages/settings/SettingsPage'
 import { UsersPermissionsPage } from './pages/users/UsersPermissionsPage'
 import { InspectionManagementPage } from './pages/inspections/InspectionManagementPage'
+
+type ApiRecord = Record<string, unknown>
+type CalendarRecord = {
+  id: string | number
+  title?: string
+  scheduledDate?: string
+  status?: string
+  clientName?: string
+  siteName?: string
+  technicianName?: string
+  equipmentName?: string
+}
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+
+function readToken() {
+  return localStorage.getItem('fieldops_token') || sessionStorage.getItem('fieldops_token')
+}
+
+async function apiGet<T>(path: string): Promise<T> {
+  const token = readToken()
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+  })
+  if (!response.ok) throw new Error(`Falha ao consultar ${path} (${response.status})`)
+  return response.json() as Promise<T>
+}
+
+function recordName(record: ApiRecord | undefined, fallback: string) {
+  if (!record) return fallback
+  const candidates = ['name', 'title', 'fullName', 'full_name', 'displayName', 'username', 'companyName', 'legalName']
+  for (const key of candidates) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  const first = record.firstName ?? record.first_name
+  const last = record.lastName ?? record.last_name
+  if (typeof first === 'string' || typeof last === 'string') return `${first || ''} ${last || ''}`.trim() || fallback
+  return fallback
+}
+
+function idOf(record: ApiRecord) {
+  return String(record.id ?? record.clientId ?? record.siteId ?? record.equipmentId ?? record.userId ?? '')
+}
+
+function displayDate(date?: string, time?: string) {
+  if (!date) return '—'
+  const [year, month, day] = date.slice(0, 10).split('-').map(Number)
+  if (!year || !month || !day) return date
+  const dateText = new Date(year, month - 1, day).toLocaleDateString('pt-BR')
+  const timeText = time ? ` ${time.slice(0, 5)}` : ''
+  return `${dateText}${timeText}`
+}
+
+function normalizeStatus(status: unknown): Status {
+  const value = String(status ?? '').toUpperCase()
+  if (value === 'IN_PROGRESS' || value === 'EM ANDAMENTO') return 'Em andamento'
+  if (value === 'UNDER_REVIEW' || value === 'COMPLETED' || value === 'AGUARDANDO REVISÃO') return 'Aguardando revisão'
+  if (value === 'APPROVED' || value === 'APROVADA') return 'Aprovada'
+  if (value === 'REJECTED' || value === 'REPROVADA') return 'Reprovada'
+  return 'Agendada'
+}
+
+function normalizePriority(priority: unknown): Inspection['priority'] {
+  const value = String(priority ?? 'NORMAL').toUpperCase()
+  if (value === 'LOW' || value === 'BAIXA') return 'Baixa'
+  if (value === 'HIGH' || value === 'ALTA') return 'Alta'
+  if (value === 'CRITICAL' || value === 'CRITICA' || value === 'CRÍTICA') return 'Crítica'
+  return 'Normal'
+}
 
 const menu = [
   ['Dashboard', LayoutDashboard], ['Inspeções', ClipboardCheck], ['Calendário', CalendarDays],
@@ -45,7 +115,72 @@ function App() {
   const [page, setPage] = useState('Dashboard')
   const [dark, setDark] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
-  const [inspections, setInspections] = useState(seed)
+  const [inspections, setInspections] = useState<Inspection[]>(seed)
+  const [calendarInspections, setCalendarInspections] = useState<CalendarRecord[]>([])
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardError, setDashboardError] = useState('')
+
+  useEffect(() => {
+    if (!authenticated) return
+    let active = true
+    async function loadOperationalData() {
+      setDashboardLoading(true)
+      setDashboardError('')
+      try {
+        const [rawInspections, rawClients, rawSites, rawEquipment, rawUsers] = await Promise.all([
+          apiGet<ApiRecord[]>('/api/v1/inspections'),
+          apiGet<ApiRecord[]>('/api/v1/clients').catch(() => []),
+          apiGet<ApiRecord[]>('/api/v1/sites').catch(() => []),
+          apiGet<ApiRecord[]>('/api/v1/equipments').catch(() => []),
+          apiGet<ApiRecord[]>('/api/v1/users').catch(() => [])
+        ])
+        if (!active) return
+        const clients = new Map(rawClients.map(item => [idOf(item), recordName(item, `Cliente #${idOf(item)}`)]))
+        const sites = new Map(rawSites.map(item => [idOf(item), recordName(item, `Local #${idOf(item)}`)]))
+        const equipment = new Map(rawEquipment.map(item => [idOf(item), recordName(item, `Equipamento #${idOf(item)}`)]))
+        const users = new Map(rawUsers.map(item => [idOf(item), recordName(item, `Técnico #${idOf(item)}`)]))
+        const calendarRows: CalendarRecord[] = rawInspections.map(item => {
+          const date = String(item.scheduledDate ?? '')
+          const time = String(item.scheduledTime ?? '')
+          return {
+            id: String(item.id ?? ''),
+            title: String(item.title ?? `Inspeção #${item.id ?? ''}`),
+            scheduledDate: date ? `${date.slice(0, 10)}T${time ? time.slice(0, 8) : '00:00:00'}` : undefined,
+            status: String(item.status ?? 'SCHEDULED'),
+            clientName: clients.get(String(item.clientId ?? '')) ?? 'Cliente não informado',
+            siteName: sites.get(String(item.siteId ?? '')) ?? 'Local não informado',
+            technicianName: users.get(String(item.technicianId ?? '')) ?? 'Técnico não atribuído',
+            equipmentName: equipment.get(String(item.equipmentId ?? '')) ?? 'Equipamento não informado'
+          }
+        })
+        const dashboardRows: Inspection[] = rawInspections.map(item => {
+          const id = String(item.id ?? '')
+          const date = String(item.scheduledDate ?? '')
+          const time = String(item.scheduledTime ?? '')
+          const status = normalizeStatus(item.status)
+          return {
+            id: id.startsWith('INS-') ? id : `INS-${id.padStart(6, '0')}`,
+            client: clients.get(String(item.clientId ?? '')) ?? 'Cliente não informado',
+            location: sites.get(String(item.siteId ?? '')) ?? 'Local não informado',
+            equipment: equipment.get(String(item.equipmentId ?? '')) ?? 'Equipamento não informado',
+            technician: users.get(String(item.technicianId ?? '')) ?? 'Técnico não atribuído',
+            date: displayDate(date, time),
+            status,
+            priority: normalizePriority(item.priority),
+            progress: status === 'Aprovada' || status === 'Reprovada' || status === 'Aguardando revisão' ? 100 : status === 'Em andamento' ? 50 : 0
+          }
+        })
+        setCalendarInspections(calendarRows)
+        setInspections(dashboardRows)
+      } catch (error) {
+        if (active) setDashboardError(error instanceof Error ? error.message : 'Não foi possível carregar as inspeções da API.')
+      } finally {
+        if (active) setDashboardLoading(false)
+      }
+    }
+    void loadOperationalData()
+    return () => { active = false }
+  }, [authenticated])
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Inspection | null>(null)
   const [newInspectionOpen, setNewInspectionOpen] = useState(false)
@@ -293,6 +428,9 @@ function App() {
           {page === 'Dashboard' && (
             <Dashboard
               inspections={filtered}
+              calendarInspections={calendarInspections}
+              loading={dashboardLoading}
+              error={dashboardError}
               open={openInspection}
               onNew={() => setPage('Inspeções')}
               onViewAll={() => {
@@ -312,11 +450,12 @@ function App() {
 
           {page === 'Calendário' && (
             <RealCalendarPage
-              inspections={filtered}
+              inspections={calendarInspections}
               onNewInspection={() => setPage('Inspeções')}
               onOpenInspection={(inspection) => {
+                const rawId = String(inspection.id).replace(/^INS-/, '').replace(/^0+/, '')
                 const found = filtered.find(
-                  (item) => String(item.id) === String(inspection.id)
+                  (item) => String(item.id).replace(/^INS-/, '').replace(/^0+/, '') === rawId
                 )
 
                 if (found) {
@@ -362,37 +501,65 @@ function App() {
 }
 
 function Dashboard({
-  inspections, open, onNew, onViewAll
+  inspections, calendarInspections, loading, error, open, onNew, onViewAll
 }: {
   inspections: Inspection[]
+  calendarInspections: CalendarRecord[]
+  loading: boolean
+  error: string
   open: (i: Inspection) => void
   onNew: () => void
   onViewAll: () => void
 }) {
   const pendingInspections = inspections.filter(
-    inspection =>
-      inspection.status !== 'Aprovada' &&
-      inspection.status !== 'Reprovada'
+    inspection => inspection.status !== 'Aprovada' && inspection.status !== 'Reprovada'
   ).length
-
   const [period, setPeriod] = useState<'week' | 'month'>('week')
-
+  const now = new Date()
+  const parseCalendarDate = (value?: string) => {
+    if (!value) return null
+    const datePart = value.slice(0, 10).split('-').map(Number)
+    if (datePart.length !== 3 || !datePart[0] || !datePart[1] || !datePart[2]) return null
+    return new Date(datePart[0], datePart[1] - 1, datePart[2])
+  }
+  const rowsInRange = calendarInspections.filter(item => {
+    const date = parseCalendarDate(item.scheduledDate)
+    if (!date) return false
+    const daysAgo = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - date.getTime()) / 86400000)
+    return daysAgo >= 0 && daysAgo < (period === 'week' ? 7 : 30)
+  })
   const chartData = period === 'week'
-    ? trend
-    : [
-        { day: 'Sem 1', total: 86 },
-        { day: 'Sem 2', total: 104 },
-        { day: 'Sem 3', total: 92 },
-        { day: 'Sem 4', total: 118 }
-      ]
-
+    ? Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - index))
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+        return { day: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''), total: calendarInspections.filter(item => item.scheduledDate?.slice(0, 10) === key).length }
+      })
+    : Array.from({ length: 4 }, (_, index) => {
+        const fromDay = index * 7
+        const toDay = index === 3 ? 30 : (index + 1) * 7
+        return { day: `Sem ${index + 1}`, total: rowsInRange.filter(item => {
+          const date = parseCalendarDate(item.scheduledDate)
+          if (!date) return false
+          const daysAgo = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - date.getTime()) / 86400000)
+          return daysAgo >= fromDay && daysAgo < toDay
+        }).length }
+      })
+  const statusCounts = [
+    { name: 'Agendadas', value: inspections.filter(item => item.status === 'Agendada').length },
+    { name: 'Em andamento', value: inspections.filter(item => item.status === 'Em andamento').length },
+    { name: 'Revisão', value: inspections.filter(item => item.status === 'Aguardando revisão').length },
+    { name: 'Aprovadas', value: inspections.filter(item => item.status === 'Aprovada').length },
+    { name: 'Reprovadas', value: inspections.filter(item => item.status === 'Reprovada').length }
+  ]
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const todayCount = calendarInspections.filter(item => item.scheduledDate?.slice(0, 10) === todayKey).length
   const cards = [
-    ['Inspeções hoje', '18', '+12,5%', 'blue', ClipboardCheck],
-    ['Em andamento', '11', '+8,2%', 'amber', Activity],
-    ['Aguardando revisão', '7', '-3,1%', 'violet', Clock3],
+    ['Inspeções hoje', String(todayCount), 'Agendadas para hoje', 'blue', ClipboardCheck],
+    ['Em andamento', String(statusCounts[1].value), 'Status atual', 'amber', Activity],
+    ['Aguardando revisão', String(statusCounts[2].value), 'Status atual', 'violet', Clock3],
     ['Inspeções pendentes', String(pendingInspections), 'Em aberto', 'orange', ClipboardList],
-    ['Aprovadas', '42', '+16,8%', 'green', CheckCircle2],
-    ['Não conformidades', '13', '+4,3%', 'red', AlertTriangle]
+    ['Aprovadas', String(statusCounts[3].value), 'Status atual', 'green', CheckCircle2],
+    ['Não conformidades', '—', 'Módulo ainda não integrado', 'red', AlertTriangle]
   ] as const
 
   return (
@@ -407,6 +574,9 @@ function Dashboard({
           <Plus size={18} /> Nova inspeção
         </button>
       </div>
+
+      {error && <div className="panel" role="alert"><strong>Não foi possível atualizar os indicadores:</strong> {error}. Os dados abaixo podem estar desatualizados.</div>}
+      {loading && <p className="muted" role="status">Atualizando dados operacionais...</p>}
 
       <div className="stats">
         {cards.map(([label, value, change, color, Icon]) => (
@@ -428,7 +598,7 @@ function Dashboard({
           <div className="panel-head">
             <div>
               <h3>Inspeções por período</h3>
-              <span>{period === 'week' ? 'Últimos 7 dias' : 'Últimos 30 dias'}</span>
+              <span>{period === 'week' ? 'Últimos 7 dias · dados reais' : 'Últimos 30 dias · dados reais'}</span>
             </div>
             <button
               className="select"
@@ -473,7 +643,7 @@ function Dashboard({
           </div>
           <div className="chart">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={statuses} layout="vertical" margin={{ left: 10, right: 20 }}>
+              <BarChart data={statusCounts} layout="vertical" margin={{ left: 10, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--grid)" />
                 <XAxis type="number" axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" width={95} axisLine={false} tickLine={false} />
