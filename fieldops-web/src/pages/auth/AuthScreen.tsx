@@ -7,7 +7,6 @@ import {
   HardHat,
   LockKeyhole,
   Mail,
-  UserRound,
 } from 'lucide-react'
 
 type AuthScreenProps = {
@@ -28,10 +27,7 @@ const API_URL = (
 export function AuthScreen({
   onAuthenticated,
 }: AuthScreenProps) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [showPassword, setShowPassword] = useState(false)
-
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -39,26 +35,15 @@ export function AuthScreen({
   const [loading, setLoading] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
 
-  async function submit(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
-
-    if (mode === 'signup') {
-      setError(
-        'O cadastro pela aplicação web ainda não está conectado ao backend. Solicite a criação do usuário ao administrador.'
-      )
-      return
-    }
 
     const normalizedEmail = email.trim()
 
     if (
       !normalizedEmail ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        normalizedEmail
-      )
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
     ) {
       setError('Informe um e-mail válido.')
       return
@@ -72,96 +57,73 @@ export function AuthScreen({
     setLoading(true)
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/auth/login`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({
-            email: normalizedEmail,
-            password,
-          }),
-        }
-      )
+      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          password,
+        }),
+      })
 
-      const data =
-        (await response
-          .json()
-          .catch(() => ({}))) as LoginResponse
+      const data = (await response
+        .json()
+        .catch(() => ({}))) as LoginResponse
 
       if (!response.ok) {
-        if (
-          response.status === 401 ||
-          response.status === 403
-        ) {
+        if (response.status === 401 || response.status === 403) {
           throw new Error(
-            'E-mail ou senha inválidos, ou acesso não autorizado.'
+            'E-mail ou senha inválidos, ou acesso não autorizado.',
           )
         }
 
         throw new Error(
           data.message ||
-            `Não foi possível entrar. Erro HTTP ${response.status}.`
+            `Não foi possível entrar. Erro HTTP ${response.status}.`,
         )
       }
 
-      const token =
-        data.accessToken || data.token
+      const token = data.accessToken || data.token
 
       if (!token) {
         throw new Error(
-          'A API respondeu, mas não retornou um token de acesso. Verifique o contrato do endpoint de login.'
+          'A API respondeu, mas não retornou um token de acesso. Verifique o contrato do endpoint de login.',
         )
       }
 
-      const storage = rememberMe
-        ? localStorage
-        : sessionStorage
+      const storage = rememberMe ? localStorage : sessionStorage
 
       localStorage.removeItem('fieldops_token')
       localStorage.removeItem('fieldops_token_type')
 
       sessionStorage.removeItem('fieldops_token')
-      sessionStorage.removeItem(
-        'fieldops_token_type'
-      )
+      sessionStorage.removeItem('fieldops_token_type')
 
-      storage.setItem(
-        'fieldops_token',
-        token
-      )
-
+      storage.setItem('fieldops_token', token)
       storage.setItem(
         'fieldops_token_type',
-        data.tokenType || 'Bearer'
+        data.tokenType || 'Bearer',
       )
 
       onAuthenticated()
     } catch (err) {
       if (err instanceof TypeError) {
         setError(
-          'Não foi possível conectar ao servidor. Verifique se o backend está em execução e se o CORS está configurado.'
+          'Não foi possível conectar ao servidor. Verifique se o backend está em execução e se o CORS está configurado.',
         )
       } else {
         setError(
           err instanceof Error
             ? err.message
-            : 'Ocorreu um erro inesperado ao entrar.'
+            : 'Ocorreu um erro inesperado ao entrar.',
         )
       }
     } finally {
       setLoading(false)
     }
-  }
-
-  function changeMode(
-    next: 'login' | 'signup'
-  ) {
-    setMode(next)
-    setError('')
   }
 
   return (
@@ -178,18 +140,13 @@ export function AuthScreen({
         </div>
 
         <div className="auth-aside-copy">
-          <div className="eyebrow">
-            OPERAÇÕES EM CAMPO
-          </div>
+          <div className="eyebrow">OPERAÇÕES EM CAMPO</div>
 
-          <h1>
-            Clareza para cada inspeção.
-          </h1>
+          <h1>Clareza para cada inspeção.</h1>
 
           <p>
-            Conecte sua equipe, acompanhe riscos e
-            transforme dados de campo em decisões
-            seguras.
+            Conecte sua equipe, acompanhe riscos e transforme dados de
+            campo em decisões seguras.
           </p>
         </div>
 
@@ -212,81 +169,16 @@ export function AuthScreen({
           </div>
 
           <div className="auth-heading">
-            <div className="eyebrow">
-              BEM-VINDO AO FIELDOPS
-            </div>
+            <div className="eyebrow">BEM-VINDO AO FIELDOPS</div>
 
-            <h2>
-              {mode === 'login'
-                ? 'Acesse sua operação'
-                : 'Crie seu acesso'}
-            </h2>
+            <h2>Acesse sua operação</h2>
 
             <p>
-              {mode === 'login'
-                ? 'Entre para acompanhar suas inspeções em tempo real.'
-                : 'Comece a organizar suas inspeções em um só lugar.'}
+              Entre para acompanhar suas inspeções em tempo real.
             </p>
           </div>
 
-          <div className="auth-tabs">
-            <button
-              type="button"
-              className={
-                mode === 'login'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() =>
-                changeMode('login')
-              }
-              disabled={loading}
-            >
-              Entrar
-            </button>
-
-            <button
-              type="button"
-              className={
-                mode === 'signup'
-                  ? 'active'
-                  : ''
-              }
-              onClick={() =>
-                changeMode('signup')
-              }
-              disabled={loading}
-            >
-              Criar conta
-            </button>
-          </div>
-
-          <form
-            className="auth-form"
-            onSubmit={submit}
-          >
-            {mode === 'signup' && (
-              <label>
-                Nome completo
-
-                <div className="field">
-                  <UserRound size={17} />
-
-                  <input
-                    value={name}
-                    onChange={(event) =>
-                      setName(
-                        event.target.value
-                      )
-                    }
-                    placeholder="Como devemos chamar você?"
-                    autoComplete="name"
-                    disabled={loading}
-                  />
-                </div>
-              </label>
-            )}
-
+          <form className="auth-form" onSubmit={submit}>
             <label>
               E-mail corporativo
 
@@ -296,11 +188,7 @@ export function AuthScreen({
                 <input
                   type="email"
                   value={email}
-                  onChange={(event) =>
-                    setEmail(
-                      event.target.value
-                    )
-                  }
+                  onChange={(event) => setEmail(event.target.value)}
                   placeholder="voce@empresa.com"
                   autoComplete="email"
                   required
@@ -316,23 +204,11 @@ export function AuthScreen({
                 <LockKeyhole size={17} />
 
                 <input
-                  type={
-                    showPassword
-                      ? 'text'
-                      : 'password'
-                  }
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(event) =>
-                    setPassword(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Mínimo de 6 caracteres"
-                  autoComplete={
-                    mode === 'login'
-                      ? 'current-password'
-                      : 'new-password'
-                  }
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Digite sua senha"
+                  autoComplete="current-password"
                   required
                   disabled={loading}
                 />
@@ -340,15 +216,9 @@ export function AuthScreen({
                 <button
                   type="button"
                   className="password-toggle"
-                  onClick={() =>
-                    setShowPassword(
-                      (current) => !current
-                    )
-                  }
+                  onClick={() => setShowPassword((current) => !current)}
                   aria-label={
-                    showPassword
-                      ? 'Ocultar senha'
-                      : 'Mostrar senha'
+                    showPassword ? 'Ocultar senha' : 'Mostrar senha'
                   }
                   disabled={loading}
                 >
@@ -361,45 +231,36 @@ export function AuthScreen({
               </div>
             </label>
 
-            {mode === 'login' && (
-              <div className="auth-options">
-                <label className="remember">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(event) =>
-                      setRememberMe(
-                        event.target.checked
-                      )
-                    }
-                    disabled={loading}
-                  />
-
-                  <span>
-                    Manter conectado
-                  </span>
-                </label>
-
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() =>
-                    setError(
-                      'Entre em contato com o administrador para recuperar seu acesso.'
-                    )
+            <div className="auth-options">
+              <label className="remember">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(event) =>
+                    setRememberMe(event.target.checked)
                   }
                   disabled={loading}
-                >
-                  Esqueci minha senha
-                </button>
-              </div>
-            )}
+                />
+
+                <span>Manter conectado</span>
+              </label>
+
+              <button
+                type="button"
+                className="text-button"
+                onClick={() =>
+                  setError(
+                    'Entre em contato com o administrador para recuperar seu acesso.',
+                  )
+                }
+                disabled={loading}
+              >
+                Esqueci minha senha
+              </button>
+            </div>
 
             {error && (
-              <div
-                className="auth-error"
-                role="alert"
-              >
+              <div className="auth-error" role="alert">
                 {error}
               </div>
             )}
@@ -409,22 +270,15 @@ export function AuthScreen({
               type="submit"
               disabled={loading}
             >
-              {loading
-                ? 'Conectando...'
-                : mode === 'login'
-                  ? 'Entrar no FieldOps'
-                  : 'Criar minha conta'}
+              {loading ? 'Conectando...' : 'Entrar no FieldOps'}
 
-              {!loading && (
-                <ArrowRight size={17} />
-              )}
+              {!loading && <ArrowRight size={17} />}
             </button>
           </form>
 
           <p className="auth-legal">
-            Ao continuar, você concorda com os
-            termos de uso e a política de
-            privacidade.
+            Ao continuar, você concorda com os termos de uso e a política
+            de privacidade.
           </p>
         </div>
       </main>
