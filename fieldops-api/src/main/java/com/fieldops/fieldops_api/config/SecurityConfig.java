@@ -2,6 +2,7 @@
 package com.fieldops.fieldops_api.config;
 
 import com.fieldops.fieldops_api.security.JwtAuthenticationFilter;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -20,7 +21,8 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -78,25 +80,33 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                // Autenticação
+                // Login e cadastro públicos
                 .requestMatchers(
-                    "/api/v1/auth/**",
-                    "/error"
+                    HttpMethod.POST,
+                    "/api/v1/auth/login",
+                    "/api/v1/auth/register"
                 ).permitAll()
 
-                // Usuários
+                // Tratamento de erros
+                .requestMatchers("/error").permitAll()
+
+                // Perfil, atualização de dados e alteração de senha
+                .requestMatchers("/api/v1/auth/**")
+                .authenticated()
+
+                // Usuários: somente ADMIN
                 .requestMatchers("/api/v1/users/**")
                 .hasRole("ADMIN")
 
-                // Clientes
+                // Clientes: somente ADMIN
                 .requestMatchers("/api/v1/clients/**")
                 .hasRole("ADMIN")
 
-                // Locais
+                // Locais: somente ADMIN
                 .requestMatchers("/api/v1/sites/**")
                 .hasRole("ADMIN")
 
-                // Equipamentos
+                // Equipamentos: somente ADMIN
                 .requestMatchers("/api/v1/equipments/**")
                 .hasRole("ADMIN")
 
@@ -116,15 +126,13 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/template-items/**")
                 .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                // Cadastro de respostas
-                // A validação do técnico responsável é feita no Service.
+                // Cadastro de respostas: somente técnicos
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/v1/inspections/*/answers"
                 ).hasRole("TECHNICIAN")
 
-                // Criação de inspeção
-                // Técnico não cria inspeções.
+                // Criação de inspeções
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/v1/inspections/**"
@@ -141,7 +149,6 @@ public class SecurityConfig {
                 )
 
                 // Atualização de status
-                // As permissões específicas são validadas no Service.
                 .requestMatchers(
                     HttpMethod.PATCH,
                     "/api/v1/inspections/**"
@@ -151,7 +158,7 @@ public class SecurityConfig {
                     "TECHNICIAN"
                 )
 
-                // Demais endpoints
+                // Demais endpoints exigem autenticação
                 .anyRequest().authenticated()
             )
 

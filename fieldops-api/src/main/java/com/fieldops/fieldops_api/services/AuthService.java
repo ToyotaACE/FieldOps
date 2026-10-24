@@ -3,11 +3,14 @@ package com.fieldops.fieldops_api.services;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fieldops.fieldops_api.dto.LoginRequestDTO;
 import com.fieldops.fieldops_api.dto.LoginResponseDTO;
 import com.fieldops.fieldops_api.dto.RegisterRequestDTO;
 import com.fieldops.fieldops_api.dto.UserResponseDTO;
+import com.fieldops.fieldops_api.dto.MyProfileUpdateDTO;
+import com.fieldops.fieldops_api.dto.MyPasswordUpdateDTO;
 import com.fieldops.fieldops_api.entities.Role;
 import com.fieldops.fieldops_api.entities.User;
 import com.fieldops.fieldops_api.exceptions.BusinessException;
@@ -77,6 +80,71 @@ public class AuthService {
 
         user = userRepository.save(user);
 
+        return toUserResponse(user);
+    }
+
+    @Transactional
+    public UserResponseDTO updateMyProfile(
+            User authenticatedUser,
+            MyProfileUpdateDTO dto) {
+
+        User user = userRepository.findById(authenticatedUser.getId())
+                .orElseThrow(() ->
+                        new BusinessException("Usuário não encontrado")
+                );
+
+        String userId = user.getId().toString();
+        String email = dto.email().trim().toLowerCase();
+
+        boolean emailAlreadyUsed = userRepository.findByEmail(email)
+                .filter(existingUser ->
+                        !existingUser.getId().toString().equals(userId)
+                )
+                .isPresent();
+
+        if (emailAlreadyUsed) {
+            throw new BusinessException("E-mail já cadastrado");
+        }
+
+        user.setName(dto.name().trim());
+        user.setEmail(email);
+
+        user = userRepository.save(user);
+
+        return toUserResponse(user);
+    }
+
+    @Transactional
+    public void changeMyPassword(
+            User authenticatedUser,
+            MyPasswordUpdateDTO dto) {
+
+        User user = userRepository.findById(authenticatedUser.getId())
+                .orElseThrow(() ->
+                        new BusinessException("Usuário não encontrado")
+                );
+
+        if (!passwordEncoder.matches(
+                dto.currentPassword(),
+                user.getPassword())) {
+
+            throw new BusinessException("Senha atual inválida");
+        }
+
+        if (dto.currentPassword().equals(dto.newPassword())) {
+            throw new BusinessException(
+                    "A nova senha deve ser diferente da senha atual"
+            );
+        }
+
+        user.setPassword(
+                passwordEncoder.encode(dto.newPassword())
+        );
+
+        userRepository.save(user);
+    }
+
+    private UserResponseDTO toUserResponse(User user) {
         return new UserResponseDTO(
                 user.getId(),
                 user.getName(),

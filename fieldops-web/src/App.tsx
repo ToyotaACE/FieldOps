@@ -29,14 +29,24 @@ import { InspectionManagementPage } from './pages/inspections/InspectionManageme
 
 type ApiRecord = Record<string, unknown>
 type CalendarRecord = {
-  id: string | number
-  title?: string
+  id: string
+  title: string
   scheduledDate?: string
-  status?: string
-  clientName?: string
-  siteName?: string
-  technicianName?: string
-  equipmentName?: string
+  status: string
+  clientName: string
+  siteName: string
+  technicianName: string
+  equipmentName: string
+}
+
+type AuthenticatedUser = {
+  id: number
+  name: string
+  email: string
+  role: 'ADMIN' | 'SUPERVISOR' | 'TECHNICIAN' | string
+  active: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
@@ -114,11 +124,67 @@ function App() {
 
   const [page, setPage] = useState('Dashboard')
   const [dark, setDark] = useState(false)
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null)
+  const [userLoading, setUserLoading] = useState(false)
+  const [userError, setUserError] = useState('')
   const [collapsed, setCollapsed] = useState(false)
   const [inspections, setInspections] = useState<Inspection[]>(seed)
   const [calendarInspections, setCalendarInspections] = useState<CalendarRecord[]>([])
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [dashboardError, setDashboardError] = useState('')
+  
+  useEffect(() => {
+    if (!authenticated) {
+      setCurrentUser(null)
+      setUserError('')
+      return
+    }
+
+    let active = true
+
+    async function loadCurrentUser() {
+      setUserLoading(true)
+      setUserError('')
+
+      try {
+        const user = await apiGet<AuthenticatedUser>('/api/v1/auth/me')
+
+        if (active) {
+          setCurrentUser(user)
+        }
+      } catch (error) {
+        if (active) {
+          setCurrentUser(null)
+          setUserError(
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível carregar o perfil do usuário.'
+          )
+        }
+      } finally {
+        if (active) {
+          setUserLoading(false)
+        }
+      }
+    }
+
+    void loadCurrentUser()
+
+    return () => {
+      active = false
+    }
+  }, [authenticated])
+
+  const userName = currentUser?.name || (userLoading ? 'Carregando...' : 'Usuário')
+  const userRole = currentUser?.role || ''
+  const userEmail = currentUser?.email || ''
+
+  const userInitials = userName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join('')
 
   useEffect(() => {
     if (!authenticated) return
@@ -310,23 +376,30 @@ function App() {
           ))}
         </nav>
 
-        <div className="sidebar-bottom">
-          <div className="user-mini">
-            <div className="avatar">CS</div>
-            {!collapsed && (
-              <div>
-                <b>Carlos Souza</b>
-                <small>Supervisor</small>
-              </div>
-            )}
-          </div>
+        <div className="user-mini" title={userEmail}>
+          <div className="avatar">{userInitials || 'U'}</div>
+
+          {!collapsed && (
+            <div>
+              <b>{userName}</b>
+              <small>
+                {userRole === 'ADMIN'
+                  ? 'Administrador'
+                  : userRole === 'SUPERVISOR'
+                    ? 'Supervisor'
+                    : userRole === 'TECHNICIAN'
+                      ? 'Técnico'
+                      : userRole || 'Perfil não identificado'}
+              </small>
+            </div>
+          )}
+        </div>
 
           {!collapsed && (
             <button className="logout" onClick={logout}>
               <LogOut size={16} /> Sair
             </button>
           )}
-        </div>
       </aside>
 
       <main className="main">
@@ -420,8 +493,9 @@ function App() {
               )}
             </div>
 
-            <div className="avatar">CS</div>
-          </div>
+            <div className="avatar" title={userEmail}>
+              {userInitials || 'U'}
+            </div>          </div>
         </header>
 
         <section className="content">
