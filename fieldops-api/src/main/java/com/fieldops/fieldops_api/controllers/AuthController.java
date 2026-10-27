@@ -60,6 +60,8 @@ public class AuthController {
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
+                user.getDocument(),
+                user.getPhone(),
                 user.getRole(),
                 user.getActive(),
                 user.getCreatedAt(),
