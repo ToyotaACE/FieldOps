@@ -1,3 +1,4 @@
+
 package com.fieldops.fieldops_api.entities;
 
 import java.time.LocalDateTime;
@@ -26,6 +27,12 @@ public class User {
 
     @Column(nullable = false, unique = true, length = 150)
     private String email;
+
+    @Column(length = 11)
+    private String document;
+
+    @Column(length = 11)
+    private String phone;
 
     @Column(nullable = false)
     private String password;
@@ -81,6 +88,22 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getDocument() {
+        return document;
+    }
+
+    public void setDocument(String document) {
+        this.document = document;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getPassword() {

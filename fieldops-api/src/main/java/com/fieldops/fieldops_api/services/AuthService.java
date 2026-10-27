@@ -93,25 +93,21 @@ public class AuthService {
                         new BusinessException("Usuário não encontrado")
                 );
 
-        String userId = user.getId().toString();
-        String email = dto.email().trim().toLowerCase();
-
-        boolean emailAlreadyUsed = userRepository.findByEmail(email)
-                .filter(existingUser ->
-                        !existingUser.getId().toString().equals(userId)
-                )
-                .isPresent();
-
-        if (emailAlreadyUsed) {
-            throw new BusinessException("E-mail já cadastrado");
-        }
-
         user.setName(dto.name().trim());
-        user.setEmail(email);
+        user.setDocument(normalizeOptionalDigits(dto.document()));
+        user.setPhone(normalizeOptionalDigits(dto.phone()));
 
         user = userRepository.save(user);
 
         return toUserResponse(user);
+    }
+
+    private String normalizeOptionalDigits(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return value.replaceAll("\\D", "");
     }
 
     @Transactional
@@ -149,6 +145,8 @@ public class AuthService {
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
+                user.getDocument(),
+                user.getPhone(),
                 user.getRole(),
                 user.getActive(),
                 user.getCreatedAt(),
