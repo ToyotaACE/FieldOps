@@ -1,9 +1,12 @@
+
 import React, {
+  useEffect,
   useMemo,
   useState,
 } from 'react';
 
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   SafeAreaView,
@@ -13,6 +16,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   Bell,
@@ -52,6 +57,11 @@ import {
 } from './src/types';
 
 import {
+  getCurrentUser,
+  type AuthUser,
+} from './src/services/api';
+
+import {
   palettes,
 } from './src/theme/colors';
 
@@ -83,10 +93,26 @@ export default function App() {
     setDrawerOpen,
   ] = useState(false);
 
+  /*
+  |--------------------------------------------------------------------------
+  | AUTENTICAÇÃO E SESSÃO
+  |--------------------------------------------------------------------------
+  */
+
   const [
     isAuthenticated,
     setIsAuthenticated,
+  ] = useState(false);
+
+  const [
+    checkingSession,
+    setCheckingSession,
   ] = useState(true);
+
+  const [
+    currentUser,
+    setCurrentUser,
+  ] = useState<AuthUser | null>(null);
 
   /*
   |--------------------------------------------------------------------------
@@ -108,10 +134,6 @@ export default function App() {
   |--------------------------------------------------------------------------
   | MODAL GENÉRICO
   |--------------------------------------------------------------------------
-  |
-  | Mantido apenas para páginas que ainda utilizam
-  | o cadastro genérico.
-  |
   */
 
   const [
@@ -146,32 +168,152 @@ export default function App() {
   const [
     selectedInspection,
     setSelectedInspection,
-  ] =
-    useState<Inspection | null>(
-      null,
-    );
+  ] = useState<Inspection | null>(
+    null,
+  );
 
   /*
   |--------------------------------------------------------------------------
   | NÃO CONFORMIDADES
   |--------------------------------------------------------------------------
-  |
-  | Este é o estado compartilhado entre:
-  |
-  | ReportsPage
-  |      ↓
-  | App.tsx
-  |      ↓
-  | NonConformitiesPage
-  |
   */
 
   const [
     nonConformities,
     setNonConformities,
-  ] = useState<
-    NonConformity[]
-  >([]);
+  ] = useState<NonConformity[]>([]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | RESTAURAÇÃO E VALIDAÇÃO DA SESSÃO
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function restoreSession() {
+      try {
+        const token = await AsyncStorage.getItem(
+          'fieldops_token',
+        );
+
+        const savedUser = await AsyncStorage.getItem(
+          'fieldops_user',
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        // Sem token ou perfil salvo, permanece na tela de login.
+        if (!token || !savedUser) {
+          await AsyncStorage.multiRemove([
+            'fieldops_token',
+            'fieldops_user',
+          ]);
+
+          return;
+        }
+
+        // Verifica o token diretamente no backend.
+        // Não confia somente nos dados salvos no aparelho.
+        const user = await getCurrentUser(token);
+
+        if (!mounted) {
+          return;
+        }
+
+        // Atualiza o perfil salvo com os dados atuais da API.
+        await AsyncStorage.setItem(
+          'fieldops_user',
+          JSON.stringify(user),
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Erro desconhecido ao validar a sessão.';
+
+        console.error(
+          'Erro ao restaurar sessão:',
+          message,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        // Token inválido ou usuário inativo:
+        // remove as credenciais armazenadas.
+        if (
+          message === 'SESSION_INVALID' ||
+          message === 'Este usuário está inativo.'
+        ) {
+          try {
+            await AsyncStorage.multiRemove([
+              'fieldops_token',
+              'fieldops_user',
+            ]);
+          } catch (storageError) {
+            console.error(
+              'Erro ao limpar sessão inválida:',
+              storageError,
+            );
+          }
+        }
+
+        // Se houver falha de conexão, não libera o acesso.
+        // O token é preservado para uma nova tentativa.
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        if (mounted) {
+          setCheckingSession(false);
+        }
+      }
+    }
+
+    restoreSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | REALIZAR LOGIN
+  |--------------------------------------------------------------------------
+  */
+
+  async function handleLogin(
+    token: string,
+    user: AuthUser,
+  ) {
+    if (!user.active) {
+      throw new Error('Este usuário está inativo.');
+    }
+
+    await AsyncStorage.multiSet([
+      ['fieldops_token', token],
+      ['fieldops_user', JSON.stringify(user)],
+    ]);
+
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    setPage('Dashboard');
+    setShowReports(false);
+    setSelectedInspection(null);
+    setQuery('');
+  }
 
   /*
   |--------------------------------------------------------------------------
@@ -192,14 +334,10 @@ export default function App() {
 
       return inspections.filter(
         (inspection) =>
-          Object.values(
-            inspection,
-          )
+          Object.values(inspection)
             .join(' ')
             .toLowerCase()
-            .includes(
-              normalizedQuery,
-            ),
+            .includes(normalizedQuery),
       );
     }, [
       inspections,
@@ -212,17 +350,10 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  function navigate(
-    nextPage: Page,
-  ) {
+  function navigate(nextPage: Page) {
     setPage(nextPage);
-
     setShowReports(false);
-
-    setSelectedInspection(
-      null,
-    );
-
+    setSelectedInspection(null);
     setDrawerOpen(false);
   }
 
@@ -235,10 +366,7 @@ export default function App() {
   function openInspection(
     inspection: Inspection,
   ) {
-    setSelectedInspection(
-      inspection,
-    );
-
+    setSelectedInspection(inspection);
     setPage('Inspeções e relatórios');
     setShowReports(false);
   }
@@ -252,34 +380,26 @@ export default function App() {
   function updateInspectionStatus(
     status: Status,
   ) {
-    if (
-      !selectedInspection
-    ) {
+    if (!selectedInspection) {
       return;
     }
 
-    const updatedInspection: Inspection =
-      {
-        ...selectedInspection,
-        status,
-      };
+    const updatedInspection: Inspection = {
+      ...selectedInspection,
+      status,
+    };
 
     setInspections(
-      (
-        currentInspections,
-      ) =>
+      (currentInspections) =>
         currentInspections.map(
           (inspection) =>
-            inspection.id ===
-            selectedInspection.id
+            inspection.id === selectedInspection.id
               ? updatedInspection
               : inspection,
         ),
     );
 
-    setSelectedInspection(
-      updatedInspection,
-    );
+    setSelectedInspection(updatedInspection);
   }
 
   /*
@@ -309,20 +429,109 @@ export default function App() {
     setModalOpen(true);
   }
 
-  function logout() {
+  /*
+  |--------------------------------------------------------------------------
+  | ENCERRAR SESSÃO
+  |--------------------------------------------------------------------------
+  */
+
+  async function logout() {
     setDrawerOpen(false);
     setModalOpen(false);
     setSelectedInspection(null);
     setPage('Dashboard');
+    setShowReports(false);
     setQuery('');
-    setIsAuthenticated(false);
+
+    try {
+      await AsyncStorage.multiRemove([
+        'fieldops_token',
+        'fieldops_user',
+      ]);
+    } catch (error) {
+      console.error(
+        'Erro ao limpar sessão:',
+        error,
+      );
+    } finally {
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+    }
   }
 
-  if (!isAuthenticated) {
+  /*
+  |--------------------------------------------------------------------------
+  | VERIFICAR SESSÃO
+  |--------------------------------------------------------------------------
+  */
+
+  if (checkingSession) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
-        <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.panel} />
-        <LoginPage colors={colors} onLogin={() => setIsAuthenticated(true)} />
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: colors.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+        ]}
+      >
+        <StatusBar
+          barStyle={
+            darkMode
+              ? 'light-content'
+              : 'dark-content'
+          }
+          backgroundColor={colors.panel}
+        />
+
+        <ActivityIndicator
+          size="large"
+          color="#2563eb"
+        />
+
+        <Text
+          style={{
+            color: colors.text,
+            marginTop: 12,
+          }}
+        >
+          Verificando sessão...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | TELA DE LOGIN
+  |--------------------------------------------------------------------------
+  */
+
+  if (!isAuthenticated || !currentUser) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: colors.bg,
+          },
+        ]}
+      >
+        <StatusBar
+          barStyle={
+            darkMode
+              ? 'light-content'
+              : 'dark-content'
+          }
+          backgroundColor={colors.panel}
+        />
+
+        <LoginPage
+          colors={colors}
+          onLogin={handleLogin}
+        />
       </SafeAreaView>
     );
   }
@@ -344,15 +553,9 @@ export default function App() {
       case 'Dashboard':
         return (
           <DashboardPage
-            colors={
-              colors
-            }
-            inspections={
-              filteredInspections
-            }
-            onOpenInspection={
-              openInspection
-            }
+            colors={colors}
+            inspections={filteredInspections}
+            onOpenInspection={openInspection}
             onNewInspection={() =>
               Alert.alert(
                 'Nova inspeção',
@@ -371,41 +574,25 @@ export default function App() {
       case 'Inspeções e relatórios':
         return (
           <InspectionsReportsPage
-            colors={
-              colors
-            }
-            showReports={
-              showReports
-            }
+            colors={colors}
+            showReports={showReports}
             onOpenReports={() =>
               setShowReports(true)
             }
             onBackToInspections={() =>
               setShowReports(false)
             }
-            inspections={
-              filteredInspections
-            }
-            selected={
-              selectedInspection
-            }
-            onOpenInspection={
-              openInspection
-            }
+            inspections={filteredInspections}
+            selected={selectedInspection}
+            onOpenInspection={openInspection}
             onBack={() =>
-              setSelectedInspection(
-                null,
-              )
+              setSelectedInspection(null)
             }
             onApprove={() =>
-              updateInspectionStatus(
-                'Aprovada',
-              )
+              updateInspectionStatus('Aprovada')
             }
             onReject={() =>
-              updateInspectionStatus(
-                'Reprovada',
-              )
+              updateInspectionStatus('Reprovada')
             }
             onNewInspection={() =>
               Alert.alert(
@@ -413,9 +600,7 @@ export default function App() {
                 'As inspeções deverão ser programadas pelo supervisor.',
               )
             }
-            onCreateNonConformity={
-              createNonConformity
-            }
+            onCreateNonConformity={createNonConformity}
           />
         );
 
@@ -423,35 +608,26 @@ export default function App() {
       |--------------------------------------------------------------------------
       | CALENDÁRIO
       |--------------------------------------------------------------------------
-      |
-      | Somente visualização.
-      |
       */
 
       case 'Calendário':
         return (
           <CalendarPage
-            colors={
-              colors
-            }
+            colors={colors}
           />
         );
 
       /*
       |--------------------------------------------------------------------------
-      | MODELOS
+      | MODELOS DE INSPEÇÃO
       |--------------------------------------------------------------------------
       */
 
       case 'Modelos de inspeção':
         return (
           <InspectionModelsPage
-            colors={
-              colors
-            }
-            onNew={
-              openNewRecordModal
-            }
+            colors={colors}
+            onNew={openNewRecordModal}
           />
         );
 
@@ -464,12 +640,8 @@ export default function App() {
       case 'Clientes':
         return (
           <ClientsPage
-            colors={
-              colors
-            }
-            onNew={
-              openNewRecordModal
-            }
+            colors={colors}
+            onNew={openNewRecordModal}
           />
         );
 
@@ -477,17 +649,12 @@ export default function App() {
       |--------------------------------------------------------------------------
       | LOCAIS
       |--------------------------------------------------------------------------
-      |
-      | Inspetor apenas visualiza onde está o equipamento.
-      |
       */
 
       case 'Locais':
         return (
           <LocationsPage
-            colors={
-              colors
-            }
+            colors={colors}
           />
         );
 
@@ -500,12 +667,8 @@ export default function App() {
       case 'Equipamentos':
         return (
           <EquipmentPage
-            colors={
-              colors
-            }
-            onNew={
-              openNewRecordModal
-            }
+            colors={colors}
+            onNew={openNewRecordModal}
           />
         );
 
@@ -513,21 +676,13 @@ export default function App() {
       |--------------------------------------------------------------------------
       | NÃO CONFORMIDADES
       |--------------------------------------------------------------------------
-      |
-      | Recebe exatamente os relatórios criados
-      | na ReportsPage.
-      |
       */
 
       case 'Não conformidades':
         return (
           <NonConformitiesPage
-            colors={
-              colors
-            }
-            nonConformities={
-              nonConformities
-            }
+            colors={colors}
+            nonConformities={nonConformities}
           />
         );
 
@@ -540,12 +695,8 @@ export default function App() {
       case 'Auditoria':
         return (
           <AuditPage
-            colors={
-              colors
-            }
-            onNew={
-              openNewRecordModal
-            }
+            colors={colors}
+            onNew={openNewRecordModal}
           />
         );
 
@@ -558,16 +709,11 @@ export default function App() {
       case 'Configurações':
         return (
           <SettingsPage
-            colors={
-              colors
-            }
-            darkMode={
-              darkMode
-            }
+            colors={colors}
+            darkMode={darkMode}
             onToggleDarkMode={() =>
               setDarkMode(
-                (currentValue) =>
-                  !currentValue,
+                (currentValue) => !currentValue,
               )
             }
           />
@@ -586,17 +732,17 @@ export default function App() {
 
   const showSearch =
     (
-      page ===
-        'Dashboard' ||
-      page ===
-        'Inspeções e relatórios' &&
-      !showReports
+      page === 'Dashboard' ||
+      (
+        page === 'Inspeções e relatórios' &&
+        !showReports
+      )
     ) &&
     !selectedInspection;
 
   /*
   |--------------------------------------------------------------------------
-  | INTERFACE
+  | INTERFACE PRINCIPAL
   |--------------------------------------------------------------------------
   */
 
@@ -605,8 +751,7 @@ export default function App() {
       style={[
         styles.safeArea,
         {
-          backgroundColor:
-            colors.bg,
+          backgroundColor: colors.bg,
         },
       ]}
     >
@@ -616,9 +761,7 @@ export default function App() {
             ? 'light-content'
             : 'dark-content'
         }
-        backgroundColor={
-          colors.panel
-        }
+        backgroundColor={colors.panel}
       />
 
       {/* HEADER */}
@@ -627,43 +770,27 @@ export default function App() {
         style={[
           styles.header,
           {
-            backgroundColor:
-              colors.panel,
-
-            borderBottomColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderBottomColor: colors.border,
           },
         ]}
       >
         <TouchableOpacity
-          onPress={() =>
-            setDrawerOpen(
-              true,
-            )
-          }
-          style={
-            styles.iconButton
-          }
+          onPress={() => setDrawerOpen(true)}
+          style={styles.iconButton}
         >
           <Menu
             size={23}
-            color={
-              colors.text
-            }
+            color={colors.text}
           />
         </TouchableOpacity>
 
-        <View
-          style={
-            styles.headerTitleWrapper
-          }
-        >
+        <View style={styles.headerTitleWrapper}>
           <Text
             style={[
               styles.headerKicker,
               {
-                color:
-                  colors.muted,
+                color: colors.muted,
               },
             ]}
           >
@@ -674,13 +801,10 @@ export default function App() {
             style={[
               styles.headerTitle,
               {
-                color:
-                  colors.text,
+                color: colors.text,
               },
             ]}
-            numberOfLines={
-              1
-            }
+            numberOfLines={1}
           >
             {page}
           </Text>
@@ -691,27 +815,20 @@ export default function App() {
         <TouchableOpacity
           onPress={() =>
             setDarkMode(
-              (currentValue) =>
-                !currentValue,
+              (currentValue) => !currentValue,
             )
           }
-          style={
-            styles.iconButton
-          }
+          style={styles.iconButton}
         >
           {darkMode ? (
             <Sun
               size={20}
-              color={
-                colors.muted
-              }
+              color={colors.muted}
             />
           ) : (
             <Moon
               size={20}
-              color={
-                colors.muted
-              }
+              color={colors.muted}
             />
           )}
         </TouchableOpacity>
@@ -725,22 +842,14 @@ export default function App() {
               'Nenhuma nova notificação.',
             )
           }
-          style={
-            styles.iconButton
-          }
+          style={styles.iconButton}
         >
           <Bell
             size={20}
-            color={
-              colors.muted
-            }
+            color={colors.muted}
           />
 
-          <View
-            style={
-              styles.notificationDot
-            }
-          />
+          <View style={styles.notificationDot} />
         </TouchableOpacity>
       </View>
 
@@ -751,37 +860,25 @@ export default function App() {
           style={[
             styles.searchBar,
             {
-              backgroundColor:
-                colors.panel,
-
-              borderColor:
-                colors.border,
+              backgroundColor: colors.panel,
+              borderColor: colors.border,
             },
           ]}
         >
           <Search
             size={18}
-            color={
-              colors.muted
-            }
+            color={colors.muted}
           />
 
           <TextInput
-            value={
-              query
-            }
-            onChangeText={
-              setQuery
-            }
+            value={query}
+            onChangeText={setQuery}
             placeholder="Buscar no FieldOps..."
-            placeholderTextColor={
-              colors.muted
-            }
+            placeholderTextColor={colors.muted}
             style={[
               styles.searchInput,
               {
-                color:
-                  colors.text,
+                color: colors.text,
               },
             ]}
           />
@@ -790,100 +887,54 @@ export default function App() {
 
       {/* PÁGINA */}
 
-      <View
-        style={
-          styles.body
-        }
-      >
+      <View style={styles.body}>
         {renderCurrentPage()}
       </View>
 
-      {/* DRAWER */}
+      {/* MENU LATERAL */}
 
       <AppDrawer
-        visible={
-          drawerOpen
-        }
-        page={
-          page
-        }
-        colors={
-          colors
-        }
-        onClose={() =>
-          setDrawerOpen(
-            false,
-          )
-        }
-        onNavigate={
-          navigate
-        }
-        onLogout={
-          logout
-        }
+        visible={drawerOpen}
+        page={page}
+        colors={colors}
+        onClose={() => setDrawerOpen(false)}
+        onNavigate={navigate}
+        onLogout={logout}
       />
 
       {/* MODAL GENÉRICO */}
 
       <Modal
-        visible={
-          modalOpen
-        }
+        visible={modalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() =>
-          setModalOpen(
-            false,
-          )
-        }
+        onRequestClose={() => setModalOpen(false)}
       >
-        <View
-          style={
-            styles.overlay
-          }
-        >
+        <View style={styles.overlay}>
           <View
             style={[
               styles.modal,
               {
-                backgroundColor:
-                  colors.panel,
+                backgroundColor: colors.panel,
               },
             ]}
           >
             <TouchableOpacity
-              style={
-                styles.closeButton
-              }
-              onPress={() =>
-                setModalOpen(
-                  false,
-                )
-              }
+              style={styles.closeButton}
+              onPress={() => setModalOpen(false)}
             >
-              <X
-                color={
-                  colors.muted
-                }
-              />
+              <X color={colors.muted} />
             </TouchableOpacity>
 
-            <View
-              style={
-                styles.modalIcon
-              }
-            >
-              <Plus
-                color="#2563eb"
-              />
+            <View style={styles.modalIcon}>
+              <Plus color="#2563eb" />
             </View>
 
             <Text
               style={[
                 styles.modalTitle,
                 {
-                  color:
-                    colors.text,
+                  color: colors.text,
                 },
               ]}
             >
@@ -894,72 +945,47 @@ export default function App() {
               style={[
                 styles.modalText,
                 {
-                  color:
-                    colors.muted,
+                  color: colors.muted,
                 },
               ]}
             >
               Formulário preparado
               para receber integração
-              com Supabase.
+              com o backend FieldOps.
             </Text>
 
             <TextInput
               placeholder="Nome / identificação"
-              placeholderTextColor={
-                colors.muted
-              }
+              placeholderTextColor={colors.muted}
               style={[
                 styles.input,
                 {
-                  color:
-                    colors.text,
-
-                  borderColor:
-                    colors.border,
-
-                  backgroundColor:
-                    colors.bg,
+                  color: colors.text,
+                  borderColor: colors.border,
+                  backgroundColor: colors.bg,
                 },
               ]}
             />
 
             <TextInput
               placeholder="Descrição"
-              placeholderTextColor={
-                colors.muted
-              }
+              placeholderTextColor={colors.muted}
               multiline
               style={[
                 styles.input,
                 {
-                  color:
-                    colors.text,
-
-                  borderColor:
-                    colors.border,
-
-                  backgroundColor:
-                    colors.bg,
+                  color: colors.text,
+                  borderColor: colors.border,
+                  backgroundColor: colors.bg,
                 },
               ]}
             />
 
             <TouchableOpacity
-              style={
-                styles.primaryButton
-              }
-              onPress={() =>
-                setModalOpen(
-                  false,
-                )
-              }
+              style={styles.primaryButton}
+              onPress={() => setModalOpen(false)}
             >
-              <Text
-                style={
-                  styles.primaryButtonText
-                }
-              >
+              <Text style={styles.primaryButtonText}>
                 Salvar cadastro
               </Text>
             </TouchableOpacity>
