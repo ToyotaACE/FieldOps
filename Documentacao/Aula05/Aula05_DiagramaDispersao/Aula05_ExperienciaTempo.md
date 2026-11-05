@@ -1,6 +1,5 @@
-```mermaid
-quadrantChart
-    title Experiência do Técnico x Tempo de Resolução
+    Experiência do Técnico x Tempo de Resolução
+
     x-axis "Pouca experiência" --> "Muita experiência"
     y-axis "Baixo tempo" --> "Alto tempo"
 
@@ -19,5 +18,3 @@ quadrantChart
     T8: [0.68, 0.23]
     T9: [0.86, 0.10]
     T10: [1.00, 0.00]
-
-```
