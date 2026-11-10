@@ -18,6 +18,40 @@ type LoginResponse = {
   tokenType: string;
 };
 
+// Dados retornados pela API para cada inspeção.
+export type BackendInspection = {
+  id: number;
+  title: string;
+
+  templateVersionId: number;
+  clientId: number;
+  siteId: number;
+  equipmentId: number;
+  technicianId: number;
+
+  clientName: string;
+  siteName: string;
+  equipmentName: string;
+  technicianName: string;
+
+  scheduledDate: string;
+  scheduledTime: string;
+
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
+
+  status:
+    | 'SCHEDULED'
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
+    | 'UNDER_REVIEW'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'CANCELLED';
+
+  createdAt: string;
+  updatedAt: string;
+};
+
 /**
  * Busca o perfil do usuário e valida o token no backend.
  */
@@ -108,4 +142,58 @@ export async function loginRequest(
     token: data.accessToken,
     user,
   };
+}
+
+/**
+ * Busca as inspeções do usuário autenticado.
+ *
+ * O backend já aplica as permissões:
+ * - ADMIN: consulta todas as inspeções.
+ * - SUPERVISOR: consulta todas as inspeções.
+ * - TECHNICIAN: consulta somente as próprias inspeções.
+ */
+export async function getInspections(
+  token: string,
+): Promise<BackendInspection[]> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_URL}/inspections`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch {
+    throw new Error(
+      'Não foi possível carregar as inspeções. Verifique se o backend está ativo.',
+    );
+  }
+
+  if (response.status === 401) {
+    throw new Error('SESSION_INVALID');
+  }
+
+  if (response.status === 403) {
+    throw new Error(
+      'Você não tem permissão para consultar as inspeções.',
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Erro ao buscar inspeções. Código HTTP: ${response.status}`,
+    );
+  }
+
+  const inspections: BackendInspection[] = await response.json();
+
+  if (!Array.isArray(inspections)) {
+    throw new Error(
+      'A API retornou um formato inválido para as inspeções.',
+    );
+  }
+
+  return inspections;
 }

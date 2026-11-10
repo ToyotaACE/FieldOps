@@ -4,3 +4,6 @@ build/
 .env
 .env.*
 oracleJdk-27/
+
+# Arquivos temporários do Expo
+.expo

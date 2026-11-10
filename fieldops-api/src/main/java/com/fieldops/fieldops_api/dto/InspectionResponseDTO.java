@@ -1,3 +1,4 @@
+
 package com.fieldops.fieldops_api.dto;
 
 import com.fieldops.fieldops_api.entities.InspectionStatus;
@@ -17,6 +18,12 @@ public class InspectionResponseDTO {
     private Long siteId;
     private Long equipmentId;
     private Long technicianId;
+
+    // Novos campos para facilitar a exibição no aplicativo.
+    private String clientName;
+    private String siteName;
+    private String equipmentName;
+    private String technicianName;
 
     private LocalDate scheduledDate;
     private LocalTime scheduledTime;
@@ -82,6 +89,38 @@ public class InspectionResponseDTO {
         this.technicianId = technicianId;
     }
 
+    public String getClientName() {
+        return clientName;
+    }
+
+    public void setClientName(String clientName) {
+        this.clientName = clientName;
+    }
+
+    public String getSiteName() {
+        return siteName;
+    }
+
+    public void setSiteName(String siteName) {
+        this.siteName = siteName;
+    }
+
+    public String getEquipmentName() {
+        return equipmentName;
+    }
+
+    public void setEquipmentName(String equipmentName) {
+        this.equipmentName = equipmentName;
+    }
+
+    public String getTechnicianName() {
+        return technicianName;
+    }
+
+    public void setTechnicianName(String technicianName) {
+        this.technicianName = technicianName;
+    }
+
     public LocalDate getScheduledDate() {
         return scheduledDate;
     }
@@ -90,10 +129,21 @@ public class InspectionResponseDTO {
         this.scheduledDate = scheduledDate;
     }
 
-    public LocalTime getScheduledTime() { return scheduledTime; }
-    public void setScheduledTime(LocalTime scheduledTime) { this.scheduledTime = scheduledTime; }
-    public InspectionPriority getPriority() { return priority; }
-    public void setPriority(InspectionPriority priority) { this.priority = priority; }
+    public LocalTime getScheduledTime() {
+        return scheduledTime;
+    }
+
+    public void setScheduledTime(LocalTime scheduledTime) {
+        this.scheduledTime = scheduledTime;
+    }
+
+    public InspectionPriority getPriority() {
+        return priority;
+    }
+
+    public void setPriority(InspectionPriority priority) {
+        this.priority = priority;
+    }
 
     public InspectionStatus getStatus() {
         return status;

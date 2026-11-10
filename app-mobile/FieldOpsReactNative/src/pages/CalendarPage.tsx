@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 
 import {
@@ -97,9 +98,7 @@ function createInitialInspections(): Inspection[] {
   return [
     {
       id: 'inspection-1',
-      date: formatDateKey(
-        inspectionOneDate,
-      ),
+      date: formatDateKey(inspectionOneDate),
       time: '08:30',
       client: 'Empresa Solar Alpha',
       location: 'Sorocaba - SP',
@@ -111,9 +110,7 @@ function createInitialInspections(): Inspection[] {
 
     {
       id: 'inspection-2',
-      date: formatDateKey(
-        inspectionTwoDate,
-      ),
+      date: formatDateKey(inspectionTwoDate),
       time: '10:00',
       client: 'Comercial Beta',
       location: 'Jundiaí - SP',
@@ -125,9 +122,7 @@ function createInitialInspections(): Inspection[] {
 
     {
       id: 'inspection-3',
-      date: formatDateKey(
-        inspectionThreeDate,
-      ),
+      date: formatDateKey(inspectionThreeDate),
       time: '14:30',
       client: 'Indústria Solar Gamma',
       location: 'Campinas - SP',
@@ -144,78 +139,64 @@ export function CalendarPage({
 }: CalendarPageProps) {
   const today = new Date();
 
-  const [currentMonth, setCurrentMonth] =
-    useState(
-      new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        1,
-      ),
-    );
+  const [currentMonth, setCurrentMonth] = useState(
+    new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      1,
+    ),
+  );
 
-  const [
-    selectedDate,
-    setSelectedDate,
-  ] = useState(
+  const [selectedDate, setSelectedDate] = useState(
     formatDateKey(today),
   );
 
-  const [inspections] =
-    useState<Inspection[]>(
-      createInitialInspections(),
-    );
+  const [inspections] = useState<Inspection[]>(
+    createInitialInspections(),
+  );
 
   const calendarDays = useMemo(() => {
-    return generateCalendarDays(
-      currentMonth,
-    );
+    return generateCalendarDays(currentMonth);
   }, [currentMonth]);
 
-  const selectedDateInspections =
-    useMemo(() => {
-      return inspections
-        .filter(
-          (inspection) =>
-            inspection.date ===
-            selectedDate,
-        )
-        .sort(
-          (
-            firstInspection,
-            secondInspection,
-          ) =>
-            firstInspection.time.localeCompare(
-              secondInspection.time,
-            ),
-        );
-    }, [
-      inspections,
-      selectedDate,
-    ]);
-
-  const monthInspections =
-    useMemo(() => {
-      return inspections.filter(
-        (inspection) => {
-          const [
-            inspectionYear,
-            inspectionMonth,
-          ] = inspection.date
-            .split('-')
-            .map(Number);
-
-          return (
-            inspectionYear ===
-              currentMonth.getFullYear() &&
-            inspectionMonth ===
-              currentMonth.getMonth() + 1
-          );
-        },
+  const selectedDateInspections = useMemo(() => {
+    return inspections
+      .filter(
+        (inspection) =>
+          inspection.date === selectedDate,
+      )
+      .sort(
+        (firstInspection, secondInspection) =>
+          firstInspection.time.localeCompare(
+            secondInspection.time,
+          ),
       );
-    }, [
-      inspections,
-      currentMonth,
-    ]);
+  }, [inspections, selectedDate]);
+
+  const monthInspections = useMemo(() => {
+    return inspections.filter((inspection) => {
+      const parts = inspection.date.split('-');
+
+      if (parts.length !== 3) {
+        return false;
+      }
+
+      const inspectionYear = Number(parts[0]);
+      const inspectionMonth = Number(parts[1]);
+
+      if (
+        !Number.isInteger(inspectionYear) ||
+        !Number.isInteger(inspectionMonth)
+      ) {
+        return false;
+      }
+
+      return (
+        inspectionYear === currentMonth.getFullYear() &&
+        inspectionMonth === currentMonth.getMonth() + 1
+      );
+    });
+  }, [inspections, currentMonth]);
 
   function previousMonth() {
     setCurrentMonth(
@@ -248,23 +229,13 @@ export function CalendarPage({
       ),
     );
 
-    setSelectedDate(
-      formatDateKey(
-        currentDate,
-      ),
-    );
+    setSelectedDate(formatDateKey(currentDate));
   }
 
-  function selectDay(
-    calendarDay: CalendarDay,
-  ) {
-    setSelectedDate(
-      calendarDay.dateKey,
-    );
+  function selectDay(calendarDay: CalendarDay) {
+    setSelectedDate(calendarDay.dateKey);
 
-    if (
-      !calendarDay.isCurrentMonth
-    ) {
+    if (!calendarDay.isCurrentMonth) {
       setCurrentMonth(
         new Date(
           calendarDay.date.getFullYear(),
@@ -275,18 +246,13 @@ export function CalendarPage({
     }
   }
 
-  function getInspectionsForDate(
-    dateKey: string,
-  ) {
+  function getInspectionsForDate(dateKey: string) {
     return inspections.filter(
-      (inspection) =>
-        inspection.date === dateKey,
+      (inspection) => inspection.date === dateKey,
     );
   }
 
-  function getStatusStyle(
-    status: InspectionStatus,
-  ) {
+  function getStatusStyle(status: InspectionStatus) {
     switch (status) {
       case 'Concluída':
         return styles.statusCompleted;
@@ -302,9 +268,7 @@ export function CalendarPage({
     }
   }
 
-  function getStatusTextStyle(
-    status: InspectionStatus,
-  ) {
+  function getStatusTextStyle(status: InspectionStatus) {
     switch (status) {
       case 'Concluída':
         return styles.statusCompletedText;
@@ -322,12 +286,8 @@ export function CalendarPage({
 
   return (
     <ScrollView
-      contentContainerStyle={
-        styles.content
-      }
-      showsVerticalScrollIndicator={
-        false
-      }
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
         <Text style={styles.eyebrow}>
@@ -362,55 +322,39 @@ export function CalendarPage({
         style={[
           styles.summaryCard,
           {
-            backgroundColor:
-              colors.panel,
-
-            borderColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderColor: colors.border,
           },
         ]}
       >
-        <View
-          style={
-            styles.summaryIcon
-          }
-        >
+        <View style={styles.summaryIcon}>
           <CalendarDays
             size={22}
             color="#2563eb"
           />
         </View>
 
-        <View
-          style={
-            styles.summaryContent
-          }
-        >
+        <View style={styles.summaryContent}>
           <Text
             style={[
               styles.summaryNumber,
               {
-                color:
-                  colors.text,
+                color: colors.text,
               },
             ]}
           >
-            {
-              monthInspections.length
-            }
+            {monthInspections.length}
           </Text>
 
           <Text
             style={[
               styles.summaryLabel,
               {
-                color:
-                  colors.muted,
+                color: colors.muted,
               },
             ]}
           >
-            {monthInspections.length ===
-            1
+            {monthInspections.length === 1
               ? 'inspeção programada neste mês'
               : 'inspeções programadas neste mês'}
           </Text>
@@ -421,30 +365,20 @@ export function CalendarPage({
         style={[
           styles.calendarCard,
           {
-            backgroundColor:
-              colors.panel,
-
-            borderColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderColor: colors.border,
           },
         ]}
       >
-        <View
-          style={
-            styles.calendarHeader
-          }
-        >
+        <View style={styles.calendarHeader}>
           <TouchableOpacity
             style={[
               styles.navigationButton,
               {
-                borderColor:
-                  colors.border,
+                borderColor: colors.border,
               },
             ]}
-            onPress={
-              previousMonth
-            }
+            onPress={previousMonth}
           >
             <ChevronLeft
               size={21}
@@ -452,34 +386,23 @@ export function CalendarPage({
             />
           </TouchableOpacity>
 
-          <View
-            style={
-              styles.monthContainer
-            }
-          >
+          <View style={styles.monthContainer}>
             <Text
               style={[
                 styles.monthTitle,
                 {
-                  color:
-                    colors.text,
+                  color: colors.text,
                 },
               ]}
             >
-              {formatMonthTitle(
-                currentMonth,
-              )}
+              {formatMonthTitle(currentMonth)}
             </Text>
 
             <TouchableOpacity
               onPress={goToToday}
               activeOpacity={0.7}
             >
-              <Text
-                style={
-                  styles.todayText
-                }
-              >
+              <Text style={styles.todayText}>
                 Ir para hoje
               </Text>
             </TouchableOpacity>
@@ -489,13 +412,10 @@ export function CalendarPage({
             style={[
               styles.navigationButton,
               {
-                borderColor:
-                  colors.border,
+                borderColor: colors.border,
               },
             ]}
-            onPress={
-              nextMonth
-            }
+            onPress={nextMonth}
           >
             <ChevronRight
               size={21}
@@ -504,169 +424,119 @@ export function CalendarPage({
           </TouchableOpacity>
         </View>
 
-        <View
-          style={
-            styles.weekHeader
-          }
-        >
-          {WEEK_DAYS.map(
-            (
-              weekDay,
-              index,
-            ) => (
-              <View
-                key={`${weekDay}-${index}`}
-                style={
-                  styles.weekDay
-                }
+        <View style={styles.weekHeader}>
+          {WEEK_DAYS.map((weekDay, index) => (
+            <View
+              key={`${weekDay}-${index}`}
+              style={styles.weekDay}
+            >
+              <Text
+                style={[
+                  styles.weekDayText,
+                  {
+                    color: colors.muted,
+                  },
+                ]}
               >
-                <Text
-                  style={[
-                    styles.weekDayText,
-                    {
-                      color:
-                        colors.muted,
-                    },
-                  ]}
-                >
-                  {weekDay}
-                </Text>
-              </View>
-            ),
-          )}
+                {weekDay}
+              </Text>
+            </View>
+          ))}
         </View>
 
-        <View
-          style={
-            styles.daysGrid
-          }
-        >
-          {calendarDays.map(
-            (calendarDay) => {
-              const dayInspections =
-                getInspectionsForDate(
-                  calendarDay.dateKey,
-                );
+        <View style={styles.daysGrid}>
+          {calendarDays.map((calendarDay) => {
+            const dayInspections =
+              getInspectionsForDate(calendarDay.dateKey);
 
-              const isSelected =
-                calendarDay.dateKey ===
-                selectedDate;
+            const isSelected =
+              calendarDay.dateKey === selectedDate;
 
-              return (
-                <TouchableOpacity
-                  key={
-                    calendarDay.dateKey
-                  }
-                  activeOpacity={0.7}
-                  style={
-                    styles.dayCell
-                  }
-                  onPress={() =>
-                    selectDay(
-                      calendarDay,
-                    )
-                  }
+            return (
+              <TouchableOpacity
+                key={calendarDay.dateKey}
+                activeOpacity={0.7}
+                style={styles.dayCell}
+                onPress={() => selectDay(calendarDay)}
+              >
+                <View
+                  style={[
+                    styles.dayCircle,
+
+                    isSelected &&
+                      styles.selectedDayCircle,
+
+                    calendarDay.isToday &&
+                      !isSelected &&
+                      styles.todayDayCircle,
+                  ]}
                 >
-                  <View
+                  <Text
                     style={[
-                      styles.dayCircle,
+                      styles.dayNumber,
+
+                      {
+                        color: calendarDay.isCurrentMonth
+                          ? colors.text
+                          : colors.muted,
+                      },
+
+                      !calendarDay.isCurrentMonth &&
+                        styles.outsideMonthDay,
 
                       isSelected &&
-                        styles.selectedDayCircle,
+                        styles.selectedDayNumber,
 
                       calendarDay.isToday &&
                         !isSelected &&
-                        styles.todayDayCircle,
+                        styles.todayDayNumber,
+                    ]}
+                  >
+                    {calendarDay.day}
+                  </Text>
+                </View>
+
+                {dayInspections.length > 0 ? (
+                  <View
+                    style={[
+                      styles.inspectionCountContainer,
+
+                      isSelected &&
+                        styles.selectedInspectionCountContainer,
                     ]}
                   >
                     <Text
                       style={[
-                        styles.dayNumber,
-
-                        {
-                          color:
-                            calendarDay.isCurrentMonth
-                              ? colors.text
-                              : colors.muted,
-                        },
-
-                        !calendarDay.isCurrentMonth &&
-                          styles.outsideMonthDay,
+                        styles.inspectionCountText,
 
                         isSelected &&
-                          styles.selectedDayNumber,
-
-                        calendarDay.isToday &&
-                          !isSelected &&
-                          styles.todayDayNumber,
+                          styles.selectedInspectionCountText,
                       ]}
                     >
-                      {
-                        calendarDay.day
-                      }
+                      {dayInspections.length}
                     </Text>
                   </View>
-
-                  {dayInspections.length >
-                  0 ? (
-                    <View
-                      style={[
-                        styles.inspectionCountContainer,
-
-                        isSelected &&
-                          styles.selectedInspectionCountContainer,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.inspectionCountText,
-
-                          isSelected &&
-                            styles.selectedInspectionCountText,
-                        ]}
-                      >
-                        {
-                          dayInspections.length
-                        }
-                      </Text>
-                    </View>
-                  ) : (
-                    <View
-                      style={
-                        styles.inspectionCountPlaceholder
-                      }
-                    />
-                  )}
-                </TouchableOpacity>
-              );
-            },
-          )}
+                ) : (
+                  <View
+                    style={styles.inspectionCountPlaceholder}
+                  />
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <View
           style={[
             styles.calendarFooter,
             {
-              borderTopColor:
-                colors.border,
+              borderTopColor: colors.border,
             },
           ]}
         >
-          <View
-            style={
-              styles.footerExample
-            }
-          >
-            <View
-              style={
-                styles.exampleNumber
-              }
-            >
-              <Text
-                style={
-                  styles.exampleNumberText
-                }
-              >
+          <View style={styles.footerExample}>
+            <View style={styles.exampleNumber}>
+              <Text style={styles.exampleNumberText}>
                 2
               </Text>
             </View>
@@ -675,8 +545,7 @@ export function CalendarPage({
               style={[
                 styles.footerText,
                 {
-                  color:
-                    colors.muted,
+                  color: colors.muted,
                 },
               ]}
             >
@@ -687,22 +556,13 @@ export function CalendarPage({
         </View>
       </View>
 
-      <View
-        style={
-          styles.selectedDateHeader
-        }
-      >
-        <View
-          style={
-            styles.selectedDateTextContainer
-          }
-        >
+      <View style={styles.selectedDateHeader}>
+        <View style={styles.selectedDateTextContainer}>
           <Text
             style={[
               styles.scheduleTitle,
               {
-                color:
-                  colors.text,
+                color: colors.text,
               },
             ]}
           >
@@ -713,56 +573,34 @@ export function CalendarPage({
             style={[
               styles.scheduleDate,
               {
-                color:
-                  colors.muted,
+                color: colors.muted,
               },
             ]}
           >
-            {formatSelectedDate(
-              selectedDate,
-            )}
+            {formatSelectedDate(selectedDate)}
           </Text>
         </View>
 
-        {selectedDateInspections.length >
-          0 && (
-          <View
-            style={
-              styles.dayInspectionCount
-            }
-          >
-            <Text
-              style={
-                styles.dayInspectionCountText
-              }
-            >
-              {
-                selectedDateInspections.length
-              }
+        {selectedDateInspections.length > 0 && (
+          <View style={styles.dayInspectionCount}>
+            <Text style={styles.dayInspectionCountText}>
+              {selectedDateInspections.length}
             </Text>
           </View>
         )}
       </View>
 
-      {selectedDateInspections.length ===
-      0 ? (
+      {selectedDateInspections.length === 0 ? (
         <View
           style={[
             styles.emptyState,
             {
-              backgroundColor:
-                colors.panel,
-
-              borderColor:
-                colors.border,
+              backgroundColor: colors.panel,
+              borderColor: colors.border,
             },
           ]}
         >
-          <View
-            style={
-              styles.emptyIcon
-            }
-          >
+          <View style={styles.emptyIcon}>
             <CalendarDays
               size={28}
               color="#2563eb"
@@ -773,8 +611,7 @@ export function CalendarPage({
             style={[
               styles.emptyStateTitle,
               {
-                color:
-                  colors.text,
+                color: colors.text,
               },
             ]}
           >
@@ -785,8 +622,7 @@ export function CalendarPage({
             style={[
               styles.emptyStateDescription,
               {
-                color:
-                  colors.muted,
+                color: colors.muted,
               },
             ]}
           >
@@ -795,259 +631,187 @@ export function CalendarPage({
           </Text>
         </View>
       ) : (
-        <View
-          style={
-            styles.inspectionList
-          }
-        >
-          {selectedDateInspections.map(
-            (inspection) => (
-              <View
-                key={
-                  inspection.id
-                }
-                style={[
-                  styles.inspectionCard,
-                  {
-                    backgroundColor:
-                      colors.panel,
+        <View style={styles.inspectionList}>
+          {selectedDateInspections.map((inspection) => (
+            <View
+              key={inspection.id}
+              style={[
+                styles.inspectionCard,
+                {
+                  backgroundColor: colors.panel,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <View style={styles.inspectionCardHeader}>
+                <View style={styles.timeContainer}>
+                  <View style={styles.timeIcon}>
+                    <Clock3
+                      size={18}
+                      color="#2563eb"
+                    />
+                  </View>
 
-                    borderColor:
-                      colors.border,
+                  <View>
+                    <Text
+                      style={[
+                        styles.timeLabel,
+                        {
+                          color: colors.muted,
+                        },
+                      ]}
+                    >
+                      HORÁRIO
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.inspectionTime,
+                        {
+                          color: colors.text,
+                        },
+                      ]}
+                    >
+                      {inspection.time}
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={[
+                    styles.statusBadge,
+                    getStatusStyle(inspection.status),
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      getStatusTextStyle(inspection.status),
+                    ]}
+                  >
+                    {inspection.status}
+                  </Text>
+                </View>
+              </View>
+
+              <Text
+                style={[
+                  styles.inspectionClient,
+                  {
+                    color: colors.text,
                   },
                 ]}
               >
-                <View
-                  style={
-                    styles.inspectionCardHeader
-                  }
-                >
-                  <View
-                    style={
-                      styles.timeContainer
-                    }
-                  >
-                    <View
-                      style={
-                        styles.timeIcon
-                      }
-                    >
-                      <Clock3
-                        size={18}
-                        color="#2563eb"
-                      />
-                    </View>
+                {inspection.client}
+              </Text>
 
-                    <View>
-                      <Text
-                        style={[
-                          styles.timeLabel,
-                          {
-                            color:
-                              colors.muted,
-                          },
-                        ]}
-                      >
-                        HORÁRIO
-                      </Text>
-
-                      <Text
-                        style={[
-                          styles.inspectionTime,
-                          {
-                            color:
-                              colors.text,
-                          },
-                        ]}
-                      >
-                        {
-                          inspection.time
-                        }
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.statusBadge,
-
-                      getStatusStyle(
-                        inspection.status,
-                      ),
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusText,
-
-                        getStatusTextStyle(
-                          inspection.status,
-                        ),
-                      ]}
-                    >
-                      {
-                        inspection.status
-                      }
-                    </Text>
-                  </View>
-                </View>
-
-                <Text
-                  style={[
-                    styles.inspectionClient,
-                    {
-                      color:
-                        colors.text,
-                    },
-                  ]}
-                >
+              <View
+                style={[
+                  styles.detailBox,
                   {
-                    inspection.client
-                  }
-                </Text>
-
-                <View
-                  style={[
-                    styles.detailBox,
-                    {
-                      borderColor:
-                        colors.border,
-                    },
-                  ]}
-                >
-                  <View
-                    style={
-                      styles.detailRow
-                    }
-                  >
-                    <MapPin
-                      size={17}
-                      color="#2563eb"
-                    />
-
-                    <View
-                      style={
-                        styles.detailContent
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          {
-                            color:
-                              colors.muted,
-                          },
-                        ]}
-                      >
-                        LOCAL
-                      </Text>
-
-                      <Text
-                        style={[
-                          styles.detailValue,
-                          {
-                            color:
-                              colors.text,
-                          },
-                        ]}
-                      >
-                        {
-                          inspection.location
-                        }
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.detailDivider,
-                      {
-                        backgroundColor:
-                          colors.border,
-                      },
-                    ]}
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.detailRow}>
+                  <MapPin
+                    size={17}
+                    color="#2563eb"
                   />
 
-                  <View
-                    style={
-                      styles.detailRow
-                    }
-                  >
-                    <UserRound
-                      size={17}
-                      color="#2563eb"
-                    />
-
-                    <View
-                      style={
-                        styles.detailContent
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.detailLabel,
-                          {
-                            color:
-                              colors.muted,
-                          },
-                        ]}
-                      >
-                        INSPETOR
-                      </Text>
-
-                      <Text
-                        style={[
-                          styles.detailValue,
-                          {
-                            color:
-                              colors.text,
-                          },
-                        ]}
-                      >
+                  <View style={styles.detailContent}>
+                    <Text
+                      style={[
+                        styles.detailLabel,
                         {
-                          inspection.inspector
-                        }
-                      </Text>
-                    </View>
+                          color: colors.muted,
+                        },
+                      ]}
+                    >
+                      LOCAL
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.detailValue,
+                        {
+                          color: colors.text,
+                        },
+                      ]}
+                    >
+                      {inspection.location}
+                    </Text>
                   </View>
                 </View>
 
-                {inspection.description ? (
-                  <View
-                    style={
-                      styles.descriptionContainer
-                    }
-                  >
+                <View
+                  style={[
+                    styles.detailDivider,
+                    {
+                      backgroundColor: colors.border,
+                    },
+                  ]}
+                />
+
+                <View style={styles.detailRow}>
+                  <UserRound
+                    size={17}
+                    color="#2563eb"
+                  />
+
+                  <View style={styles.detailContent}>
                     <Text
                       style={[
-                        styles.descriptionLabel,
+                        styles.detailLabel,
                         {
-                          color:
-                            colors.muted,
+                          color: colors.muted,
                         },
                       ]}
                     >
-                      OBSERVAÇÕES
+                      INSPETOR
                     </Text>
 
                     <Text
                       style={[
-                        styles.inspectionDescription,
+                        styles.detailValue,
                         {
-                          color:
-                            colors.text,
+                          color: colors.text,
                         },
                       ]}
                     >
-                      {
-                        inspection.description
-                      }
+                      {inspection.inspector}
                     </Text>
                   </View>
-                ) : null}
+                </View>
               </View>
-            ),
-          )}
+
+              {inspection.description ? (
+                <View style={styles.descriptionContainer}>
+                  <Text
+                    style={[
+                      styles.descriptionLabel,
+                      {
+                        color: colors.muted,
+                      },
+                    ]}
+                  >
+                    OBSERVAÇÕES
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.inspectionDescription,
+                      {
+                        color: colors.text,
+                      },
+                    ]}
+                  >
+                    {inspection.description}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ))}
         </View>
       )}
     </ScrollView>
@@ -1057,124 +821,113 @@ export function CalendarPage({
 function generateCalendarDays(
   currentMonth: Date,
 ): CalendarDay[] {
-  const year =
-    currentMonth.getFullYear();
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
 
-  const month =
-    currentMonth.getMonth();
+  const firstDayOfMonth = new Date(
+    year,
+    month,
+    1,
+  );
 
-  const firstDayOfMonth =
-    new Date(
-      year,
-      month,
-      1,
-    );
+  const startDay = new Date(
+    year,
+    month,
+    1 - firstDayOfMonth.getDay(),
+  );
 
-  const startDay =
-    new Date(
-      year,
-      month,
-      1 -
-        firstDayOfMonth.getDay(),
-    );
+  const today = new Date();
+  const todayKey = formatDateKey(today);
 
-  const today =
-    new Date();
-
-  const todayKey =
-    formatDateKey(today);
-
-  const days: CalendarDay[] =
-    [];
+  const days: CalendarDay[] = [];
 
   for (
     let index = 0;
     index < 42;
     index += 1
   ) {
-    const date =
-      new Date(
-        startDay.getFullYear(),
-        startDay.getMonth(),
-        startDay.getDate() +
-          index,
-      );
+    const date = new Date(
+      startDay.getFullYear(),
+      startDay.getMonth(),
+      startDay.getDate() + index,
+    );
 
     days.push({
       date,
-
-      dateKey:
-        formatDateKey(date),
-
-      day:
-        date.getDate(),
-
-      isCurrentMonth:
-        date.getMonth() ===
-        month,
-
-      isToday:
-        formatDateKey(date) ===
-        todayKey,
+      dateKey: formatDateKey(date),
+      day: date.getDate(),
+      isCurrentMonth: date.getMonth() === month,
+      isToday: formatDateKey(date) === todayKey,
     });
   }
 
   return days;
 }
 
-function formatMonthTitle(
-  date: Date,
-): string {
-  const formattedDate =
-    date.toLocaleDateString(
-      'pt-BR',
-      {
-        month: 'long',
-        year: 'numeric',
-      },
-    );
+function formatMonthTitle(date: Date): string {
+  const formattedDate = date.toLocaleDateString(
+    'pt-BR',
+    {
+      month: 'long',
+      year: 'numeric',
+    },
+  );
 
   return (
-    formattedDate
-      .charAt(0)
-      .toUpperCase() +
+    formattedDate.charAt(0).toUpperCase() +
     formattedDate.slice(1)
   );
 }
 
-function formatSelectedDate(
-  dateKey: string,
-): string {
-  const [
+function formatSelectedDate(dateKey: string): string {
+  const [yearString, monthString, dayString] =
+    dateKey.split('-');
+
+  const year = Number(yearString);
+  const month = Number(monthString);
+  const day = Number(dayString);
+
+  if (
+    !yearString ||
+    !monthString ||
+    !dayString ||
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return dateKey;
+  }
+
+  const date = new Date(
     year,
-    month,
+    month - 1,
     day,
-  ] = dateKey
-    .split('-')
-    .map(Number);
+  );
 
-  const date =
-    new Date(
-      year,
-      month - 1,
-      day,
-    );
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return dateKey;
+  }
 
-  const formattedDate =
-    date.toLocaleDateString(
-      'pt-BR',
-      {
-        weekday: 'long',
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      },
-    );
+  const formattedDate = date.toLocaleDateString(
+    'pt-BR',
+    {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    },
+  );
 
   return (
-    formattedDate
-      .charAt(0)
-      .toUpperCase() +
+    formattedDate.charAt(0).toUpperCase() +
     formattedDate.slice(1)
   );
 }

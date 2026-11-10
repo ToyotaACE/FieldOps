@@ -62,6 +62,10 @@ public class InspectionService {
         this.auditLogService = auditLogService;
     }
 
+    // =========================================================
+    // CRIAR INSPEÇÃO
+    // =========================================================
+
     @Transactional
     public InspectionResponseDTO create(InspectionRequestDTO dto) {
 
@@ -129,11 +133,13 @@ public class InspectionService {
         inspection.setTechnician(technician);
         inspection.setScheduledDate(dto.getScheduledDate());
         inspection.setScheduledTime(dto.getScheduledTime());
+
         inspection.setPriority(
                 dto.getPriority() == null
                         ? InspectionPriority.NORMAL
                         : dto.getPriority()
         );
+
         inspection.setStatus(InspectionStatus.SCHEDULED);
 
         Inspection saved = inspectionRepository.save(inspection);
@@ -148,16 +154,45 @@ public class InspectionService {
         return toResponseDTO(saved);
     }
 
+    // =========================================================
+    // CONSULTAR TODAS AS INSPEÇÕES
+    // =========================================================
+
     @Transactional
     public List<InspectionResponseDTO> findAll() {
-        return inspectionRepository.findAll()
-                .stream()
-                .map(this::toResponseDTO)
-                .toList();
+
+        User user = getAuthenticatedUser();
+
+        if (user.getRole() == Role.TECHNICIAN) {
+            return inspectionRepository
+                    .findByTechnicianId(user.getId())
+                    .stream()
+                    .map(this::toResponseDTO)
+                    .toList();
+        }
+
+        if (user.getRole() == Role.ADMIN
+                || user.getRole() == Role.SUPERVISOR) {
+
+            return inspectionRepository.findAll()
+                    .stream()
+                    .map(this::toResponseDTO)
+                    .toList();
+        }
+
+        throw new AccessDeniedException(
+                "Usuário sem permissão para consultar inspeções."
+        );
     }
+
+    // =========================================================
+    // CONSULTAR INSPEÇÃO POR ID
+    // =========================================================
 
     @Transactional
     public InspectionResponseDTO findById(Long id) {
+
+        User user = getAuthenticatedUser();
 
         Inspection inspection = inspectionRepository
                 .findById(id)
@@ -165,40 +200,98 @@ public class InspectionService {
                         "Inspeção não encontrada."
                 ));
 
+        validateInspectionAccess(inspection, user);
+
         return toResponseDTO(inspection);
     }
 
+    // =========================================================
+    // CONSULTAR INSPEÇÕES POR TÉCNICO
+    // =========================================================
+
     @Transactional
     public List<InspectionResponseDTO> findByTechnician(Long technicianId) {
+
+        User user = getAuthenticatedUser();
+
+        if (user.getRole() == Role.TECHNICIAN
+                && !user.getId().equals(technicianId)) {
+
+            throw new AccessDeniedException(
+                    "Você só pode consultar suas próprias inspeções."
+            );
+        }
+
+        validateReadPermission(user);
+
         return inspectionRepository.findByTechnicianId(technicianId)
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
     }
 
+    // =========================================================
+    // CONSULTAR INSPEÇÕES POR LOCAL
+    // =========================================================
+
     @Transactional
     public List<InspectionResponseDTO> findBySite(Long siteId) {
-        return inspectionRepository.findBySiteId(siteId)
+
+        User user = getAuthenticatedUser();
+        validateReadPermission(user);
+
+        List<Inspection> inspections =
+                inspectionRepository.findBySiteId(siteId);
+
+        return filterInspectionsByUser(inspections, user)
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
     }
+
+    // =========================================================
+    // CONSULTAR INSPEÇÕES POR EQUIPAMENTO
+    // =========================================================
 
     @Transactional
     public List<InspectionResponseDTO> findByEquipment(Long equipmentId) {
-        return inspectionRepository.findByEquipmentId(equipmentId)
+
+        User user = getAuthenticatedUser();
+        validateReadPermission(user);
+
+        List<Inspection> inspections =
+                inspectionRepository.findByEquipmentId(equipmentId);
+
+        return filterInspectionsByUser(inspections, user)
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
     }
 
+    // =========================================================
+    // CONSULTAR INSPEÇÕES POR STATUS
+    // =========================================================
+
     @Transactional
-    public List<InspectionResponseDTO> findByStatus(InspectionStatus status) {
-        return inspectionRepository.findByStatus(status)
+    public List<InspectionResponseDTO> findByStatus(
+            InspectionStatus status
+    ) {
+
+        User user = getAuthenticatedUser();
+        validateReadPermission(user);
+
+        List<Inspection> inspections =
+                inspectionRepository.findByStatus(status);
+
+        return filterInspectionsByUser(inspections, user)
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
     }
+
+    // =========================================================
+    // ATUALIZAR STATUS DA INSPEÇÃO
+    // =========================================================
 
     @Transactional
     public InspectionResponseDTO updateStatus(
@@ -212,15 +305,7 @@ public class InspectionService {
                         "Inspeção não encontrada."
                 ));
 
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null
-                || !(authentication.getPrincipal() instanceof User user)) {
-            throw new AccessDeniedException(
-                    "Usuário não autenticado."
-            );
-        }
+        User user = getAuthenticatedUser();
 
         InspectionStatus currentStatus = inspection.getStatus();
 
@@ -329,6 +414,10 @@ public class InspectionService {
         return toResponseDTO(updated);
     }
 
+    // =========================================================
+    // VALIDAR RESPOSTAS E EVIDÊNCIAS ANTES DA CONCLUSÃO
+    // =========================================================
+
     private void validateInspectionCompletion(Inspection inspection) {
 
         Long templateVersionId =
@@ -390,6 +479,77 @@ public class InspectionService {
         }
     }
 
+    // =========================================================
+    // MÉTODOS AUXILIARES DE AUTORIZAÇÃO
+    // =========================================================
+
+    private User getAuthenticatedUser() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof User user)) {
+
+            throw new AccessDeniedException(
+                    "Usuário não autenticado."
+            );
+        }
+
+        return user;
+    }
+
+    private void validateReadPermission(User user) {
+
+        if (user.getRole() != Role.ADMIN
+                && user.getRole() != Role.SUPERVISOR
+                && user.getRole() != Role.TECHNICIAN) {
+
+            throw new AccessDeniedException(
+                    "Usuário sem permissão para consultar inspeções."
+            );
+        }
+    }
+
+    private void validateInspectionAccess(
+            Inspection inspection,
+            User user
+    ) {
+
+        validateReadPermission(user);
+
+        if (user.getRole() == Role.TECHNICIAN
+                && !inspection.getTechnician().getId().equals(user.getId())) {
+
+            throw new AccessDeniedException(
+                    "Você não tem permissão para consultar esta inspeção."
+            );
+        }
+    }
+
+    private List<Inspection> filterInspectionsByUser(
+            List<Inspection> inspections,
+            User user
+    ) {
+
+        if (user.getRole() == Role.TECHNICIAN) {
+
+            return inspections.stream()
+                    .filter(inspection ->
+                            inspection.getTechnician().getId()
+                                    .equals(user.getId())
+                    )
+                    .toList();
+        }
+
+        return inspections;
+    }
+
+    // =========================================================
+    // CONVERTER INSPEÇÃO PARA DTO
+    // =========================================================
+
     private InspectionResponseDTO toResponseDTO(
             Inspection inspection
     ) {
@@ -419,12 +579,34 @@ public class InspectionService {
                 inspection.getTechnician().getId()
         );
 
+        // NOVOS CAMPOS: nomes das entidades relacionadas.
+        dto.setClientName(
+                inspection.getClient().getName()
+        );
+
+        dto.setSiteName(
+                inspection.getSite().getName()
+        );
+
+        dto.setEquipmentName(
+                inspection.getEquipment().getName()
+        );
+
+        dto.setTechnicianName(
+                inspection.getTechnician().getName()
+        );
+
         dto.setScheduledDate(
                 inspection.getScheduledDate()
         );
 
-        dto.setScheduledTime(inspection.getScheduledTime());
-        dto.setPriority(inspection.getPriority());
+        dto.setScheduledTime(
+                inspection.getScheduledTime()
+        );
+
+        dto.setPriority(
+                inspection.getPriority()
+        );
 
         dto.setStatus(
                 inspection.getStatus()

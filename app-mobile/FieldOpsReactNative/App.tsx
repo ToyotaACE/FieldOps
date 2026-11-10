@@ -46,10 +46,6 @@ import { SettingsPage } from './src/pages/SettingsPage';
 import { LoginPage } from './src/pages/LoginPage';
 
 import {
-  inspectionsSeed,
-} from './src/data/mockData';
-
-import {
   Inspection,
   NonConformity,
   Page,
@@ -58,7 +54,9 @@ import {
 
 import {
   getCurrentUser,
+  getInspections,
   type AuthUser,
+  type BackendInspection,
 } from './src/services/api';
 
 import {
@@ -68,6 +66,97 @@ import {
 import {
   appStyles as styles,
 } from './src/styles/App.styles';
+
+/*
+|--------------------------------------------------------------------------
+| CONVERSÃO DOS DADOS DO BACKEND
+|--------------------------------------------------------------------------
+*/
+
+function mapBackendStatus(
+  status: BackendInspection['status'],
+): Status {
+  switch (status) {
+    case 'SCHEDULED':
+      return 'Agendada';
+
+    case 'IN_PROGRESS':
+      return 'Em andamento';
+
+    case 'COMPLETED':
+      return 'Concluída';
+
+    case 'UNDER_REVIEW':
+      return 'Aguardando revisão';
+
+    case 'APPROVED':
+      return 'Aprovada';
+
+    case 'REJECTED':
+      return 'Reprovada';
+
+    case 'CANCELLED':
+      return 'Cancelada';
+
+    default:
+      return 'Agendada';
+  }
+}
+
+function mapBackendPriority(
+  priority: BackendInspection['priority'],
+): Inspection['priority'] {
+  switch (priority) {
+    case 'LOW':
+      return 'Baixa';
+
+    case 'NORMAL':
+      return 'Normal';
+
+    case 'HIGH':
+      return 'Alta';
+
+    case 'CRITICAL':
+      return 'Crítica';
+
+    default:
+      return 'Normal';
+  }
+}
+
+function mapBackendInspection(
+  backendInspection: BackendInspection,
+): Inspection {
+  return {
+    id: String(backendInspection.id),
+
+    client: backendInspection.clientName,
+    location: backendInspection.siteName,
+    equipment: backendInspection.equipmentName,
+    technician: backendInspection.technicianName,
+
+    date: [
+      backendInspection.scheduledDate,
+      backendInspection.scheduledTime,
+    ]
+      .filter(Boolean)
+      .join(' '),
+
+    status: mapBackendStatus(
+      backendInspection.status,
+    ),
+
+    priority: mapBackendPriority(
+      backendInspection.priority,
+    ),
+  };
+}
+
+/*
+|--------------------------------------------------------------------------
+| APLICAÇÃO
+|--------------------------------------------------------------------------
+*/
 
 export default function App() {
   /*
@@ -113,6 +202,27 @@ export default function App() {
     currentUser,
     setCurrentUser,
   ] = useState<AuthUser | null>(null);
+
+  const [
+    authToken,
+    setAuthToken,
+  ] = useState<string | null>(null);
+
+  /*
+  |--------------------------------------------------------------------------
+  | CARREGAMENTO DAS INSPEÇÕES
+  |--------------------------------------------------------------------------
+  */
+
+  const [
+    loadingInspections,
+    setLoadingInspections,
+  ] = useState(false);
+
+  const [
+    inspectionsError,
+    setInspectionsError,
+  ] = useState<string | null>(null);
 
   /*
   |--------------------------------------------------------------------------
@@ -161,9 +271,7 @@ export default function App() {
   const [
     inspections,
     setInspections,
-  ] = useState<Inspection[]>(
-    inspectionsSeed,
-  );
+  ] = useState<Inspection[]>([]);
 
   const [
     selectedInspection,
@@ -206,7 +314,6 @@ export default function App() {
           return;
         }
 
-        // Sem token ou perfil salvo, permanece na tela de login.
         if (!token || !savedUser) {
           await AsyncStorage.multiRemove([
             'fieldops_token',
@@ -216,15 +323,12 @@ export default function App() {
           return;
         }
 
-        // Verifica o token diretamente no backend.
-        // Não confia somente nos dados salvos no aparelho.
         const user = await getCurrentUser(token);
 
         if (!mounted) {
           return;
         }
 
-        // Atualiza o perfil salvo com os dados atuais da API.
         await AsyncStorage.setItem(
           'fieldops_user',
           JSON.stringify(user),
@@ -235,6 +339,7 @@ export default function App() {
         }
 
         setCurrentUser(user);
+        setAuthToken(token);
         setIsAuthenticated(true);
       } catch (error) {
         const message =
@@ -251,8 +356,6 @@ export default function App() {
           return;
         }
 
-        // Token inválido ou usuário inativo:
-        // remove as credenciais armazenadas.
         if (
           message === 'SESSION_INVALID' ||
           message === 'Este usuário está inativo.'
@@ -270,9 +373,8 @@ export default function App() {
           }
         }
 
-        // Se houver falha de conexão, não libera o acesso.
-        // O token é preservado para uma nova tentativa.
         setCurrentUser(null);
+        setAuthToken(null);
         setIsAuthenticated(false);
       } finally {
         if (mounted) {
@@ -308,12 +410,100 @@ export default function App() {
     ]);
 
     setCurrentUser(user);
+    setAuthToken(token);
     setIsAuthenticated(true);
+
     setPage('Dashboard');
     setShowReports(false);
     setSelectedInspection(null);
     setQuery('');
   }
+
+  /*
+  |--------------------------------------------------------------------------
+  | BUSCAR INSPEÇÕES DO BACKEND
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadInspections() {
+      if (!isAuthenticated || !authToken) {
+        return;
+      }
+
+      try {
+        setLoadingInspections(true);
+        setInspectionsError(null);
+
+        const backendInspections =
+          await getInspections(authToken);
+
+        if (!mounted) {
+          return;
+        }
+
+        const mappedInspections =
+          backendInspections.map(
+            mapBackendInspection,
+          );
+
+        setInspections(mappedInspections);
+
+        /*
+         * Atualiza também a inspeção selecionada,
+         * caso ela ainda esteja na lista retornada.
+         */
+        setSelectedInspection((currentSelected) => {
+          if (!currentSelected) {
+            return null;
+          }
+
+          return (
+            mappedInspections.find(
+              (inspection) =>
+                inspection.id === currentSelected.id,
+            ) ?? currentSelected
+          );
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar as inspeções.';
+
+        console.error(
+          'Erro ao carregar inspeções:',
+          error,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setInspectionsError(message);
+
+        Alert.alert(
+          'Erro ao carregar inspeções',
+          message,
+        );
+      } finally {
+        if (mounted) {
+          setLoadingInspections(false);
+        }
+      }
+    }
+
+    loadInspections();
+
+    return () => {
+      mounted = false;
+    };
+  }, [
+    isAuthenticated,
+    authToken,
+  ]);
 
   /*
   |--------------------------------------------------------------------------
@@ -455,7 +645,10 @@ export default function App() {
       );
     } finally {
       setCurrentUser(null);
+      setAuthToken(null);
       setIsAuthenticated(false);
+      setInspections([]);
+      setInspectionsError(null);
     }
   }
 
@@ -551,6 +744,33 @@ export default function App() {
       */
 
       case 'Dashboard':
+        if (loadingInspections) {
+          return (
+            <View
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 24,
+              }}
+            >
+              <ActivityIndicator
+                size="large"
+                color="#2563eb"
+              />
+
+              <Text
+                style={{
+                  color: colors.text,
+                  marginTop: 12,
+                }}
+              >
+                Carregando inspeções...
+              </Text>
+            </View>
+          );
+        }
+
         return (
           <DashboardPage
             colors={colors}
@@ -884,6 +1104,30 @@ export default function App() {
           />
         </View>
       )}
+
+      {/* AVISO DE ERRO DE CARREGAMENTO */}
+
+      {inspectionsError &&
+        page === 'Dashboard' &&
+        !loadingInspections && (
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              backgroundColor: '#fee2e2',
+            }}
+          >
+            <Text
+              style={{
+                color: '#991b1b',
+                fontSize: 13,
+              }}
+            >
+              Não foi possível atualizar as inspeções.
+              Verifique a conexão com o backend.
+            </Text>
+          </View>
+        )}
 
       {/* PÁGINA */}
 

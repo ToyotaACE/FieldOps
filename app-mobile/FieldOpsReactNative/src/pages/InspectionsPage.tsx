@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { BarChart3, CheckCircle2, Download, Plus, QrCode, X } from 'lucide-react-native';
+import { BarChart3, CheckCircle2, Download, QrCode } from 'lucide-react-native';
 
 import { InspectionCard } from '../components/InspectionCard';
 import { StatusBadge } from '../components/StatusBadge';
@@ -33,8 +34,6 @@ export function InspectionsPage({
   onOpenInspection,
   onBack,
   onApprove,
-  onReject,
-  onNewInspection,
   onOpenReports,
 }: InspectionsPageProps) {
   if (selected) {
@@ -46,6 +45,14 @@ export function InspectionsPage({
       ['Local', selected.location],
     ];
 
+    const hasProgress =
+      typeof selected.progress === 'number' &&
+      Number.isFinite(selected.progress);
+
+    const progress = hasProgress
+      ? Math.min(100, Math.max(0, selected.progress!))
+      : 0;
+
     return (
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={onBack}>
@@ -53,7 +60,11 @@ export function InspectionsPage({
         </TouchableOpacity>
 
         <Text style={styles.eyebrow}>{selected.id}</Text>
-        <Text style={[styles.title, { color: colors.text }]}>{selected.equipment}</Text>
+
+        <Text style={[styles.title, { color: colors.text }]}>
+          {selected.equipment}
+        </Text>
+
         <Text style={[styles.subtitle, { color: colors.muted }]}>
           {selected.client} · {selected.location}
         </Text>
@@ -62,44 +73,84 @@ export function InspectionsPage({
           <StatusBadge status={selected.status} />
         </View>
 
-        <View style={[styles.panel, { backgroundColor: colors.panel, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.panel,
+            {
+              backgroundColor: colors.panel,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           <View style={styles.banner}>
             <View style={[styles.qr, { borderColor: colors.border }]}>
               <QrCode size={44} color="#0f172a" />
             </View>
 
             <View style={styles.bannerText}>
-              <Text style={[styles.panelTitle, { color: colors.text }]}>Inspeção técnica</Text>
+              <Text style={[styles.panelTitle, { color: colors.text }]}>
+                Inspeção técnica
+              </Text>
+
               <Text style={[styles.small, { color: colors.muted }]}>
                 Modelo: Segurança Operacional · v2.1
               </Text>
-              <Text style={[styles.progressLabel, { color: colors.muted }]}>
-                Progresso: {selected.progress}%
-              </Text>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${selected.progress}%` }]} />
-              </View>
+
+              {hasProgress ? (
+                <>
+                  <Text style={[styles.progressLabel, { color: colors.muted }]}>
+                    Progresso: {progress}%
+                  </Text>
+
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${progress}%` },
+                      ]}
+                    />
+                  </View>
+                </>
+              ) : (
+                <Text style={[styles.small, { color: colors.muted }]}>
+                  Progresso não informado.
+                </Text>
+              )}
             </View>
           </View>
 
-          <Text style={[styles.panelTitleSpaced, { color: colors.text }]}>Checklist da inspeção</Text>
+          <Text style={[styles.panelTitleSpaced, { color: colors.text }]}>
+            Checklist da inspeção
+          </Text>
 
           {checklistItems.map((item, index) => (
-            <View key={item} style={[styles.checklistRow, { borderBottomColor: colors.border }]}>
+            <View
+              key={item}
+              style={[
+                styles.checklistRow,
+                { borderBottomColor: colors.border },
+              ]}
+            >
               <CheckCircle2 size={18} color="#16a34a" />
+
               <View style={styles.checklistText}>
                 <Text style={[styles.checklistTitle, { color: colors.text }]}>
                   {index + 1}. {item}
                 </Text>
+
                 <Text style={[styles.small, { color: colors.muted }]}>
                   Verificação realizada conforme procedimento.
                 </Text>
               </View>
+
               <Text style={styles.answer}>Conforme</Text>
             </View>
           ))}
 
-          <Text style={[styles.panelTitleSpaced, { color: colors.text }]}>Evidências</Text>
+          <Text style={[styles.panelTitleSpaced, { color: colors.text }]}>
+            Evidências
+          </Text>
+
           <TouchableOpacity
             onPress={() =>
               Alert.alert(
@@ -110,25 +161,59 @@ export function InspectionsPage({
             style={[styles.evidence, { borderColor: colors.muted }]}
           >
             <Download size={26} color={colors.muted} />
-            <Text style={[styles.checklistTitle, { color: colors.muted }]}>Galeria de evidências</Text>
+
+            <Text style={[styles.checklistTitle, { color: colors.muted }]}>
+              Galeria de evidências
+            </Text>
+
             <Text style={[styles.small, { color: colors.muted }]}>
               As fotos enviadas pelo técnico aparecerão aqui.
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.panel, { backgroundColor: colors.panel, borderColor: colors.border }]}>
-          <Text style={[styles.panelTitle, { color: colors.text }]}>Dados da inspeção</Text>
+        <View
+          style={[
+            styles.panel,
+            {
+              backgroundColor: colors.panel,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.panelTitle, { color: colors.text }]}>
+            Dados da inspeção
+          </Text>
+
           {inspectionInformation.map(([label, value]) => (
-            <View key={label} style={[styles.info, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.small, { color: colors.muted }]}>{label}</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>{value}</Text>
+            <View
+              key={label}
+              style={[styles.info, { borderBottomColor: colors.border }]}
+            >
+              <Text style={[styles.small, { color: colors.muted }]}>
+                {label}
+              </Text>
+
+              <Text style={[styles.infoValue, { color: colors.text }]}>
+                {value}
+              </Text>
             </View>
           ))}
         </View>
 
-        <View style={[styles.panel, { backgroundColor: colors.panel, borderColor: colors.border }]}>
-          <Text style={[styles.panelTitle, { color: colors.text }]}>Revisão</Text>
+        <View
+          style={[
+            styles.panel,
+            {
+              backgroundColor: colors.panel,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text style={[styles.panelTitle, { color: colors.text }]}>
+            Revisão
+          </Text>
+
           <Text style={[styles.subtitle, { color: colors.muted }]}>
             Revise as respostas e evidências antes de tomar uma decisão.
           </Text>
@@ -137,7 +222,6 @@ export function InspectionsPage({
             <CheckCircle2 size={17} color="#ffffff" />
             <Text style={styles.buttonText}>Concluir inspeção</Text>
           </TouchableOpacity>
-
         </View>
       </ScrollView>
     );
@@ -148,11 +232,16 @@ export function InspectionsPage({
       <View style={styles.heading}>
         <View style={styles.headingText}>
           <Text style={styles.eyebrow}>OPERAÇÕES</Text>
-          <Text style={[styles.title, { color: colors.text }]}>Inspeções</Text>
+
+          <Text style={[styles.title, { color: colors.text }]}>
+            Inspeções
+          </Text>
+
           <Text style={[styles.subtitle, { color: colors.muted }]}>
             Planeje, acompanhe e revise inspeções técnicas.
           </Text>
         </View>
+
         <TouchableOpacity
           accessibilityRole="button"
           onPress={onOpenReports}
@@ -173,7 +262,9 @@ export function InspectionsPage({
           />
         ))
       ) : (
-        <Text style={[styles.empty, { color: colors.muted }]}>Nenhuma inspeção encontrada.</Text>
+        <Text style={[styles.empty, { color: colors.muted }]}>
+          Nenhuma inspeção encontrada.
+        </Text>
       )}
     </ScrollView>
   );
