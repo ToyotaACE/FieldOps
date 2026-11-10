@@ -1,7 +1,5 @@
-import React, {
-  useMemo,
-  useState,
-} from 'react';
+
+import React, { useMemo, useState } from 'react';
 
 import {
   Alert,
@@ -44,7 +42,6 @@ import {
 type ReportsPageProps = {
   colors: Palette;
   onBack: () => void;
-
   onCreateNonConformity: (
     nonConformity: NonConformity,
   ) => void;
@@ -62,44 +59,27 @@ type Equipment = {
 const EQUIPMENTS: Equipment[] = [
   {
     id: 'equipment-1',
-    name:
-      'Painel Elétrico Principal',
-    tag:
-      'QGBT-001',
-    client:
-      'Indústria Alpha',
-    factory:
-      'Unidade Sorocaba',
-    sector:
-      'Produção - Linha 01',
+    name: 'Painel Elétrico Principal',
+    tag: 'QGBT-001',
+    client: 'Indústria Alpha',
+    factory: 'Unidade Sorocaba',
+    sector: 'Produção - Linha 01',
   },
-
   {
     id: 'equipment-2',
-    name:
-      'Compressor de Ar',
-    tag:
-      'COMP-003',
-    client:
-      'Indústria Alpha',
-    factory:
-      'Unidade Sorocaba',
-    sector:
-      'Casa de Máquinas',
+    name: 'Compressor de Ar',
+    tag: 'COMP-003',
+    client: 'Indústria Alpha',
+    factory: 'Unidade Sorocaba',
+    sector: 'Casa de Máquinas',
   },
-
   {
     id: 'equipment-3',
-    name:
-      'Centro de Usinagem CNC',
-    tag:
-      'CNC-012',
-    client:
-      'Metalúrgica Beta',
-    factory:
-      'Planta Jundiaí',
-    sector:
-      'Usinagem',
+    name: 'Centro de Usinagem CNC',
+    tag: 'CNC-012',
+    client: 'Metalúrgica Beta',
+    factory: 'Planta Jundiaí',
+    sector: 'Usinagem',
   },
 ];
 
@@ -116,13 +96,12 @@ const NON_CONFORMITY_TYPES = [
   'Outro',
 ];
 
-const SEVERITIES:
-  NonConformitySeverity[] = [
-    'Baixa',
-    'Moderada',
-    'Alta',
-    'Crítica',
-  ];
+const SEVERITIES: NonConformitySeverity[] = [
+  'Baixa',
+  'Moderada',
+  'Alta',
+  'Crítica',
+];
 
 export function ReportsPage({
   colors,
@@ -142,10 +121,7 @@ export function ReportsPage({
   const [
     severity,
     setSeverity,
-  ] =
-    useState<NonConformitySeverity>(
-      'Moderada',
-    );
+  ] = useState<NonConformitySeverity>('Moderada');
 
   const [
     problemDescription,
@@ -170,40 +146,29 @@ export function ReportsPage({
   const [
     photos,
     setPhotos,
-  ] =
-    useState<string[]>([]);
+  ] = useState<string[]>([]);
 
   const [
     videos,
     setVideos,
-  ] =
-    useState<string[]>([]);
+  ] = useState<string[]>([]);
 
-  const selectedEquipment =
-    useMemo(() => {
-      return EQUIPMENTS.find(
-        (equipment) =>
-          equipment.id ===
-          selectedEquipmentId,
-      );
-    }, [
-      selectedEquipmentId,
-    ]);
+  const selectedEquipment = useMemo(() => {
+    return EQUIPMENTS.find(
+      (equipment) =>
+        equipment.id === selectedEquipmentId,
+    );
+  }, [selectedEquipmentId]);
 
   /*
-  |--------------------------------------------------------------------------
-  | FOTO PELA CÂMERA
-  |--------------------------------------------------------------------------
-  */
-
+   * FOTO PELA CÂMERA
+   */
   async function takePhoto() {
     try {
       const permission =
         await ImagePicker.requestCameraPermissionsAsync();
 
-      if (
-        !permission.granted
-      ) {
+      if (!permission.granted) {
         Alert.alert(
           'Permissão necessária',
           'Permita o acesso à câmera para registrar fotos.',
@@ -213,32 +178,27 @@ export function ReportsPage({
       }
 
       const result =
-        await ImagePicker.launchCameraAsync(
-          {
-            mediaTypes: [
-              'images',
-            ],
-            quality: 0.8,
-          },
-        );
+        await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: 0.8,
+        });
 
-      if (
-        result.canceled ||
-        !result.assets?.length
-      ) {
+      if (result.canceled) {
         return;
       }
 
-      setPhotos(
-        (current) => [
-          ...current,
-          result.assets[0].uri,
-        ],
-      );
+      const photoUri = result.assets?.[0]?.uri;
+
+      if (!photoUri) {
+        return;
+      }
+
+      setPhotos((current) => [
+        ...current,
+        photoUri,
+      ]);
     } catch (error) {
-      console.error(
-        error,
-      );
+      console.error(error);
 
       Alert.alert(
         'Erro',
@@ -248,19 +208,14 @@ export function ReportsPage({
   }
 
   /*
-  |--------------------------------------------------------------------------
-  | FOTO DA GALERIA
-  |--------------------------------------------------------------------------
-  */
-
+   * FOTO DA GALERIA
+   */
   async function addPhotoFromGallery() {
     try {
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (
-        !permission.granted
-      ) {
+      if (!permission.granted) {
         Alert.alert(
           'Permissão necessária',
           'Permita o acesso à galeria.',
@@ -270,42 +225,26 @@ export function ReportsPage({
       }
 
       const result =
-        await ImagePicker.launchImageLibraryAsync(
-          {
-            mediaTypes: [
-              'images',
-            ],
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsMultipleSelection: true,
+          quality: 0.8,
+        });
 
-            allowsMultipleSelection:
-              true,
-
-            quality: 0.8,
-          },
-        );
-
-      if (
-        result.canceled ||
-        !result.assets?.length
-      ) {
+      if (result.canceled || !result.assets?.length) {
         return;
       }
 
-      const newPhotos =
-        result.assets.map(
-          (asset) =>
-            asset.uri,
-        );
+      const newPhotos = result.assets
+        .map((asset) => asset.uri)
+        .filter((uri): uri is string => Boolean(uri));
 
-      setPhotos(
-        (current) => [
-          ...current,
-          ...newPhotos,
-        ],
-      );
+      setPhotos((current) => [
+        ...current,
+        ...newPhotos,
+      ]);
     } catch (error) {
-      console.error(
-        error,
-      );
+      console.error(error);
 
       Alert.alert(
         'Erro',
@@ -315,19 +254,14 @@ export function ReportsPage({
   }
 
   /*
-  |--------------------------------------------------------------------------
-  | GRAVAR VÍDEO
-  |--------------------------------------------------------------------------
-  */
-
+   * GRAVAR VÍDEO
+   */
   async function recordVideo() {
     try {
       const permission =
         await ImagePicker.requestCameraPermissionsAsync();
 
-      if (
-        !permission.granted
-      ) {
+      if (!permission.granted) {
         Alert.alert(
           'Permissão necessária',
           'Permita o acesso à câmera.',
@@ -337,34 +271,27 @@ export function ReportsPage({
       }
 
       const result =
-        await ImagePicker.launchCameraAsync(
-          {
-            mediaTypes: [
-              'videos',
-            ],
+        await ImagePicker.launchCameraAsync({
+          mediaTypes: ['videos'],
+          videoMaxDuration: 60,
+        });
 
-            videoMaxDuration:
-              60,
-          },
-        );
-
-      if (
-        result.canceled ||
-        !result.assets?.length
-      ) {
+      if (result.canceled) {
         return;
       }
 
-      setVideos(
-        (current) => [
-          ...current,
-          result.assets[0].uri,
-        ],
-      );
+      const videoUri = result.assets?.[0]?.uri;
+
+      if (!videoUri) {
+        return;
+      }
+
+      setVideos((current) => [
+        ...current,
+        videoUri,
+      ]);
     } catch (error) {
-      console.error(
-        error,
-      );
+      console.error(error);
 
       Alert.alert(
         'Erro',
@@ -374,19 +301,14 @@ export function ReportsPage({
   }
 
   /*
-  |--------------------------------------------------------------------------
-  | VÍDEO DA GALERIA
-  |--------------------------------------------------------------------------
-  */
-
+   * VÍDEO DA GALERIA
+   */
   async function addVideoFromGallery() {
     try {
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (
-        !permission.granted
-      ) {
+      if (!permission.granted) {
         Alert.alert(
           'Permissão necessária',
           'Permita o acesso à galeria.',
@@ -396,40 +318,25 @@ export function ReportsPage({
       }
 
       const result =
-        await ImagePicker.launchImageLibraryAsync(
-          {
-            mediaTypes: [
-              'videos',
-            ],
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['videos'],
+          allowsMultipleSelection: true,
+        });
 
-            allowsMultipleSelection:
-              true,
-          },
-        );
-
-      if (
-        result.canceled ||
-        !result.assets?.length
-      ) {
+      if (result.canceled || !result.assets?.length) {
         return;
       }
 
-      const newVideos =
-        result.assets.map(
-          (asset) =>
-            asset.uri,
-        );
+      const newVideos = result.assets
+        .map((asset) => asset.uri)
+        .filter((uri): uri is string => Boolean(uri));
 
-      setVideos(
-        (current) => [
-          ...current,
-          ...newVideos,
-        ],
-      );
+      setVideos((current) => [
+        ...current,
+        ...newVideos,
+      ]);
     } catch (error) {
-      console.error(
-        error,
-      );
+      console.error(error);
 
       Alert.alert(
         'Erro',
@@ -438,81 +345,42 @@ export function ReportsPage({
     }
   }
 
-  function removePhoto(
-    indexToRemove: number,
-  ) {
-    setPhotos(
-      (current) =>
-        current.filter(
-          (_, index) =>
-            index !==
-            indexToRemove,
-        ),
+  function removePhoto(indexToRemove: number) {
+    setPhotos((current) =>
+      current.filter(
+        (_, index) => index !== indexToRemove,
+      ),
     );
   }
 
-  function removeVideo(
-    indexToRemove: number,
-  ) {
-    setVideos(
-      (current) =>
-        current.filter(
-          (_, index) =>
-            index !==
-            indexToRemove,
-        ),
+  function removeVideo(indexToRemove: number) {
+    setVideos((current) =>
+      current.filter(
+        (_, index) => index !== indexToRemove,
+      ),
     );
   }
 
   /*
-  |--------------------------------------------------------------------------
-  | LIMPAR
-  |--------------------------------------------------------------------------
-  */
-
+   * LIMPAR FORMULÁRIO
+   */
   function clearForm() {
-    setSelectedEquipmentId(
-      '',
-    );
-
-    setNonConformityType(
-      '',
-    );
-
-    setSeverity(
-      'Moderada',
-    );
-
-    setProblemDescription(
-      '',
-    );
-
-    setProbableCause(
-      '',
-    );
-
-    setRecommendedAction(
-      '',
-    );
-
-    setTechnicalNotes(
-      '',
-    );
-
+    setSelectedEquipmentId('');
+    setNonConformityType('');
+    setSeverity('Moderada');
+    setProblemDescription('');
+    setProbableCause('');
+    setRecommendedAction('');
+    setTechnicalNotes('');
     setPhotos([]);
     setVideos([]);
   }
 
   /*
-  |--------------------------------------------------------------------------
-  | SALVAR
-  |--------------------------------------------------------------------------
-  */
-
+   * SALVAR NÃO CONFORMIDADE
+   */
   function handleSaveNonConformity() {
-    if (
-      !selectedEquipment
-    ) {
+    if (!selectedEquipment) {
       Alert.alert(
         'Equipamento obrigatório',
         'Selecione o equipamento.',
@@ -521,9 +389,7 @@ export function ReportsPage({
       return;
     }
 
-    if (
-      !nonConformityType
-    ) {
+    if (!nonConformityType) {
       Alert.alert(
         'Tipo obrigatório',
         'Selecione o tipo de não conformidade.',
@@ -532,9 +398,7 @@ export function ReportsPage({
       return;
     }
 
-    if (
-      !problemDescription.trim()
-    ) {
+    if (!problemDescription.trim()) {
       Alert.alert(
         'Descrição obrigatória',
         'Descreva o problema encontrado.',
@@ -543,9 +407,7 @@ export function ReportsPage({
       return;
     }
 
-    if (
-      !recommendedAction.trim()
-    ) {
+    if (!recommendedAction.trim()) {
       Alert.alert(
         'Ação recomendada',
         'Informe a ação recomendada.',
@@ -554,70 +416,45 @@ export function ReportsPage({
       return;
     }
 
-    const newNonConformity: NonConformity =
-      {
-        id:
-          Date.now().toString(),
+    if (severity === 'Crítica' && photos.length === 0) {
+      Alert.alert(
+        'Evidência obrigatória',
+        'Para uma não conformidade crítica, adicione pelo menos uma foto como evidência.',
+      );
 
-        equipmentId:
-          selectedEquipment.id,
+      return;
+    }
 
-        equipmentName:
-          selectedEquipment.name,
+    const newNonConformity: NonConformity = {
+      id: Date.now().toString(),
 
-        tag:
-          selectedEquipment.tag,
+      equipmentId: selectedEquipment.id,
+      equipmentName: selectedEquipment.name,
+      tag: selectedEquipment.tag,
+      client: selectedEquipment.client,
+      factory: selectedEquipment.factory,
+      sector: selectedEquipment.sector,
 
-        client:
-          selectedEquipment.client,
+      type: nonConformityType,
+      severity,
 
-        factory:
-          selectedEquipment.factory,
+      problemDescription: problemDescription.trim(),
+      probableCause: probableCause.trim(),
+      recommendedAction: recommendedAction.trim(),
+      technicalNotes: technicalNotes.trim(),
 
-        sector:
-          selectedEquipment.sector,
+      photos: [...photos],
+      videos: [...videos],
 
-        type:
-          nonConformityType,
+      status: 'Aberta',
 
-        severity,
-
-        problemDescription:
-          problemDescription.trim(),
-
-        probableCause:
-          probableCause.trim(),
-
-        recommendedAction:
-          recommendedAction.trim(),
-
-        technicalNotes:
-          technicalNotes.trim(),
-
-        photos: [
-          ...photos,
-        ],
-
-        videos: [
-          ...videos,
-        ],
-
-        status:
-          'Aberta',
-
-        createdAt:
-          new Date().toLocaleString(
-            'pt-BR',
-          ),
-      };
+      createdAt: new Date().toLocaleString('pt-BR'),
+    };
 
     /*
      * ENVIA PARA O APP.TSX
      */
-
-    onCreateNonConformity(
-      newNonConformity,
-    );
+    onCreateNonConformity(newNonConformity);
 
     clearForm();
 
@@ -629,12 +466,8 @@ export function ReportsPage({
 
   return (
     <ScrollView
-      contentContainerStyle={
-        styles.content
-      }
-      showsVerticalScrollIndicator={
-        false
-      }
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
       <TouchableOpacity
@@ -643,14 +476,12 @@ export function ReportsPage({
         style={styles.backButton}
       >
         <ArrowLeft size={17} color="#2563eb" />
-        <Text style={styles.backButtonText}>Voltar para inspeções</Text>
+        <Text style={styles.backButtonText}>
+          Voltar para inspeções
+        </Text>
       </TouchableOpacity>
 
-      <Text
-        style={
-          styles.eyebrow
-        }
-      >
+      <Text style={styles.eyebrow}>
         FIELDOPS
       </Text>
 
@@ -658,8 +489,7 @@ export function ReportsPage({
         style={[
           styles.title,
           {
-            color:
-              colors.text,
+            color: colors.text,
           },
         ]}
       >
@@ -670,50 +500,35 @@ export function ReportsPage({
         style={[
           styles.subtitle,
           {
-            color:
-              colors.muted,
+            color: colors.muted,
           },
         ]}
       >
-        Registre detalhadamente
-        problemas encontrados durante
-        a inspeção.
+        Registre detalhadamente problemas encontrados durante a inspeção.
       </Text>
 
       <View
         style={[
           styles.introCard,
           {
-            backgroundColor:
-              colors.panel,
-
-            borderColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderColor: colors.border,
           },
         ]}
       >
-        <View
-          style={
-            styles.introIcon
-          }
-        >
+        <View style={styles.introIcon}>
           <ShieldAlert
             size={24}
             color="#dc2626"
           />
         </View>
 
-        <View
-          style={
-            styles.introContent
-          }
-        >
+        <View style={styles.introContent}>
           <Text
             style={[
               styles.introTitle,
               {
-                color:
-                  colors.text,
+                color: colors.text,
               },
             ]}
           >
@@ -724,14 +539,11 @@ export function ReportsPage({
             style={[
               styles.introDescription,
               {
-                color:
-                  colors.muted,
+                color: colors.muted,
               },
             ]}
           >
-            Informe o equipamento,
-            descreva o problema e
-            adicione evidências.
+            Informe o equipamento, descreva o problema e adicione evidências.
           </Text>
         </View>
       </View>
@@ -742,19 +554,12 @@ export function ReportsPage({
         style={[
           styles.formCard,
           {
-            backgroundColor:
-              colors.panel,
-
-            borderColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderColor: colors.border,
           },
         ]}
       >
-        <View
-          style={
-            styles.sectionHeader
-          }
-        >
+        <View style={styles.sectionHeader}>
           <Wrench
             size={19}
             color="#2563eb"
@@ -764,8 +569,7 @@ export function ReportsPage({
             style={[
               styles.sectionTitle,
               {
-                color:
-                  colors.text,
+                color: colors.text,
               },
             ]}
           >
@@ -777,133 +581,86 @@ export function ReportsPage({
           style={[
             styles.fieldLabel,
             {
-              color:
-                colors.muted,
+              color: colors.muted,
             },
           ]}
         >
           SELECIONE O EQUIPAMENTO
         </Text>
 
-        <View
-          style={
-            styles.optionsContainer
-          }
-        >
-          {EQUIPMENTS.map(
-            (equipment) => {
-              const selected =
-                equipment.id ===
-                selectedEquipmentId;
+        <View style={styles.optionsContainer}>
+          {EQUIPMENTS.map((equipment) => {
+            const selected =
+              equipment.id === selectedEquipmentId;
 
-              return (
-                <TouchableOpacity
-                  key={
-                    equipment.id
-                  }
-                  style={[
-                    styles.equipmentOption,
-
-                    {
-                      borderColor:
-                        selected
-                          ? '#2563eb'
-                          : colors.border,
-                    },
-
-                    selected &&
-                      styles.selectedEquipmentOption,
-                  ]}
-                  onPress={() =>
-                    setSelectedEquipmentId(
-                      equipment.id,
-                    )
-                  }
-                >
-                  <View
-                    style={
-                      styles.equipmentOptionHeader
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.equipmentName,
-                        {
-                          color:
-                            colors.text,
-                        },
-                      ]}
-                    >
-                      {
-                        equipment.name
-                      }
-                    </Text>
-
-                    <View
-                      style={
-                        styles.tagBadge
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.tagText
-                        }
-                      >
-                        {
-                          equipment.tag
-                        }
-                      </Text>
-                    </View>
-                  </View>
-
+            return (
+              <TouchableOpacity
+                key={equipment.id}
+                style={[
+                  styles.equipmentOption,
+                  {
+                    borderColor: selected
+                      ? '#2563eb'
+                      : colors.border,
+                  },
+                  selected && styles.selectedEquipmentOption,
+                ]}
+                onPress={() =>
+                  setSelectedEquipmentId(equipment.id)
+                }
+              >
+                <View style={styles.equipmentOptionHeader}>
                   <Text
                     style={[
-                      styles.equipmentClient,
+                      styles.equipmentName,
                       {
-                        color:
-                          colors.muted,
+                        color: colors.text,
                       },
                     ]}
                   >
-                    {
-                      equipment.client
-                    }
+                    {equipment.name}
                   </Text>
 
-                  <View
-                    style={
-                      styles.locationRow
-                    }
-                  >
-                    <MapPin
-                      size={14}
-                      color={
-                        colors.muted
-                      }
-                    />
-
-                    <Text
-                      style={[
-                        styles.locationText,
-                        {
-                          color:
-                            colors.muted,
-                        },
-                      ]}
-                    >
-                      {
-                        equipment.factory
-                      }
-                      {' • '}
-                      {
-                        equipment.sector
-                      }
+                  <View style={styles.tagBadge}>
+                    <Text style={styles.tagText}>
+                      {equipment.tag}
                     </Text>
                   </View>
-                </TouchableOpacity>
-              );
-            },
-          )}
+                </View>
+
+                <Text
+                  style={[
+                    styles.equipmentClient,
+                    {
+                      color: colors.muted,
+                    },
+                  ]}
+                >
+                  {equipment.client}
+                </Text>
+
+                <View style={styles.locationRow}>
+                  <MapPin
+                    size={14}
+                    color={colors.muted}
+                  />
+
+                  <Text
+                    style={[
+                      styles.locationText,
+                      {
+                        color: colors.muted,
+                      },
+                    ]}
+                  >
+                    {equipment.factory}
+                    {' • '}
+                    {equipment.sector}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {selectedEquipment && (
@@ -911,8 +668,7 @@ export function ReportsPage({
             style={[
               styles.selectedEquipmentCard,
               {
-                borderTopColor:
-                  colors.border,
+                borderTopColor: colors.border,
               },
             ]}
           >
@@ -921,17 +677,12 @@ export function ReportsPage({
               color="#16a34a"
             />
 
-            <View
-              style={
-                styles.selectedEquipmentContent
-              }
-            >
+            <View style={styles.selectedEquipmentContent}>
               <Text
                 style={[
                   styles.selectedEquipmentLabel,
                   {
-                    color:
-                      colors.muted,
+                    color: colors.muted,
                   },
                 ]}
               >
@@ -942,14 +693,11 @@ export function ReportsPage({
                 style={[
                   styles.selectedEquipmentText,
                   {
-                    color:
-                      colors.text,
+                    color: colors.text,
                   },
                 ]}
               >
-                {
-                  selectedEquipment.name
-                }
+                {selectedEquipment.name}
               </Text>
             </View>
           </View>
@@ -962,19 +710,12 @@ export function ReportsPage({
         style={[
           styles.formCard,
           {
-            backgroundColor:
-              colors.panel,
-
-            borderColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderColor: colors.border,
           },
         ]}
       >
-        <View
-          style={
-            styles.sectionHeader
-          }
-        >
+        <View style={styles.sectionHeader}>
           <AlertTriangle
             size={19}
             color="#dc2626"
@@ -984,8 +725,7 @@ export function ReportsPage({
             style={[
               styles.sectionTitle,
               {
-                color:
-                  colors.text,
+                color: colors.text,
               },
             ]}
           >
@@ -997,64 +737,47 @@ export function ReportsPage({
           style={[
             styles.fieldLabel,
             {
-              color:
-                colors.muted,
+              color: colors.muted,
             },
           ]}
         >
           TIPO DE NÃO CONFORMIDADE
         </Text>
 
-        <View
-          style={
-            styles.chipContainer
-          }
-        >
-          {NON_CONFORMITY_TYPES.map(
-            (type) => {
-              const selected =
-                type ===
-                nonConformityType;
+        <View style={styles.chipContainer}>
+          {NON_CONFORMITY_TYPES.map((type) => {
+            const selected =
+              type === nonConformityType;
 
-              return (
-                <TouchableOpacity
-                  key={type}
+            return (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.typeChip,
+                  {
+                    borderColor: selected
+                      ? '#2563eb'
+                      : colors.border,
+                  },
+                  selected && styles.selectedTypeChip,
+                ]}
+                onPress={() => setNonConformityType(type)}
+              >
+                <Text
                   style={[
-                    styles.typeChip,
-
+                    styles.typeChipText,
                     {
-                      borderColor:
-                        selected
-                          ? '#2563eb'
-                          : colors.border,
+                      color: selected
+                        ? '#2563eb'
+                        : colors.text,
                     },
-
-                    selected &&
-                      styles.selectedTypeChip,
                   ]}
-                  onPress={() =>
-                    setNonConformityType(
-                      type,
-                    )
-                  }
                 >
-                  <Text
-                    style={[
-                      styles.typeChipText,
-                      {
-                        color:
-                          selected
-                            ? '#2563eb'
-                            : colors.text,
-                      },
-                    ]}
-                  >
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              );
-            },
-          )}
+                  {type}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <Text
@@ -1062,66 +785,46 @@ export function ReportsPage({
             styles.fieldLabel,
             styles.severityLabel,
             {
-              color:
-                colors.muted,
+              color: colors.muted,
             },
           ]}
         >
           SEVERIDADE
         </Text>
 
-        <View
-          style={
-            styles.severityContainer
-          }
-        >
-          {SEVERITIES.map(
-            (option) => {
-              const selected =
-                severity ===
-                option;
+        <View style={styles.severityContainer}>
+          {SEVERITIES.map((option) => {
+            const selected = severity === option;
 
-              return (
-                <TouchableOpacity
-                  key={
-                    option
-                  }
+            return (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.severityButton,
+                  {
+                    borderColor: selected
+                      ? '#2563eb'
+                      : colors.border,
+                  },
+                  selected && styles.selectedSeverityButton,
+                ]}
+                onPress={() => setSeverity(option)}
+              >
+                <Text
                   style={[
-                    styles.severityButton,
-
+                    styles.severityButtonText,
                     {
-                      borderColor:
-                        selected
-                          ? '#2563eb'
-                          : colors.border,
+                      color: selected
+                        ? '#2563eb'
+                        : colors.text,
                     },
-
-                    selected &&
-                      styles.selectedSeverityButton,
                   ]}
-                  onPress={() =>
-                    setSeverity(
-                      option,
-                    )
-                  }
                 >
-                  <Text
-                    style={[
-                      styles.severityButtonText,
-                      {
-                        color:
-                          selected
-                            ? '#2563eb'
-                            : colors.text,
-                      },
-                    ]}
-                  >
-                    {option}
-                  </Text>
-                </TouchableOpacity>
-              );
-            },
-          )}
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -1131,19 +834,12 @@ export function ReportsPage({
         style={[
           styles.formCard,
           {
-            backgroundColor:
-              colors.panel,
-
-            borderColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderColor: colors.border,
           },
         ]}
       >
-        <View
-          style={
-            styles.sectionHeader
-          }
-        >
+        <View style={styles.sectionHeader}>
           <FileText
             size={19}
             color="#2563eb"
@@ -1153,8 +849,7 @@ export function ReportsPage({
             style={[
               styles.sectionTitle,
               {
-                color:
-                  colors.text,
+                color: colors.text,
               },
             ]}
           >
@@ -1166,8 +861,7 @@ export function ReportsPage({
           style={[
             styles.fieldLabel,
             {
-              color:
-                colors.muted,
+              color: colors.muted,
             },
           ]}
         >
@@ -1175,26 +869,17 @@ export function ReportsPage({
         </Text>
 
         <TextInput
-          value={
-            problemDescription
-          }
-          onChangeText={
-            setProblemDescription
-          }
+          value={problemDescription}
+          onChangeText={setProblemDescription}
           multiline
           textAlignVertical="top"
           placeholder="Descreva detalhadamente o problema encontrado..."
-          placeholderTextColor={
-            colors.muted
-          }
+          placeholderTextColor={colors.muted}
           style={[
             styles.textAreaLarge,
             {
-              color:
-                colors.text,
-
-              borderColor:
-                colors.border,
+              color: colors.text,
+              borderColor: colors.border,
             },
           ]}
         />
@@ -1203,8 +888,7 @@ export function ReportsPage({
           style={[
             styles.fieldLabel,
             {
-              color:
-                colors.muted,
+              color: colors.muted,
             },
           ]}
         >
@@ -1212,26 +896,17 @@ export function ReportsPage({
         </Text>
 
         <TextInput
-          value={
-            probableCause
-          }
-          onChangeText={
-            setProbableCause
-          }
+          value={probableCause}
+          onChangeText={setProbableCause}
           multiline
           textAlignVertical="top"
           placeholder="Informe a possível causa..."
-          placeholderTextColor={
-            colors.muted
-          }
+          placeholderTextColor={colors.muted}
           style={[
             styles.textArea,
             {
-              color:
-                colors.text,
-
-              borderColor:
-                colors.border,
+              color: colors.text,
+              borderColor: colors.border,
             },
           ]}
         />
@@ -1240,8 +915,7 @@ export function ReportsPage({
           style={[
             styles.fieldLabel,
             {
-              color:
-                colors.muted,
+              color: colors.muted,
             },
           ]}
         >
@@ -1249,26 +923,17 @@ export function ReportsPage({
         </Text>
 
         <TextInput
-          value={
-            recommendedAction
-          }
-          onChangeText={
-            setRecommendedAction
-          }
+          value={recommendedAction}
+          onChangeText={setRecommendedAction}
           multiline
           textAlignVertical="top"
           placeholder="Informe a ação recomendada..."
-          placeholderTextColor={
-            colors.muted
-          }
+          placeholderTextColor={colors.muted}
           style={[
             styles.textArea,
             {
-              color:
-                colors.text,
-
-              borderColor:
-                colors.border,
+              color: colors.text,
+              borderColor: colors.border,
             },
           ]}
         />
@@ -1277,8 +942,7 @@ export function ReportsPage({
           style={[
             styles.fieldLabel,
             {
-              color:
-                colors.muted,
+              color: colors.muted,
             },
           ]}
         >
@@ -1286,26 +950,17 @@ export function ReportsPage({
         </Text>
 
         <TextInput
-          value={
-            technicalNotes
-          }
-          onChangeText={
-            setTechnicalNotes
-          }
+          value={technicalNotes}
+          onChangeText={setTechnicalNotes}
           multiline
           textAlignVertical="top"
           placeholder="Medições, testes realizados e outras observações..."
-          placeholderTextColor={
-            colors.muted
-          }
+          placeholderTextColor={colors.muted}
           style={[
             styles.textArea,
             {
-              color:
-                colors.text,
-
-              borderColor:
-                colors.border,
+              color: colors.text,
+              borderColor: colors.border,
             },
           ]}
         />
@@ -1316,38 +971,24 @@ export function ReportsPage({
           style={[
             styles.evidenceSection,
             {
-              borderTopColor:
-                colors.border,
+              borderTopColor: colors.border,
             },
           ]}
         >
-          <View
-            style={
-              styles.evidenceHeader
-            }
-          >
-            <View
-              style={
-                styles.evidenceIcon
-              }
-            >
+          <View style={styles.evidenceHeader}>
+            <View style={styles.evidenceIcon}>
               <Camera
                 size={20}
                 color="#2563eb"
               />
             </View>
 
-            <View
-              style={
-                styles.evidenceHeaderContent
-              }
-            >
+            <View style={styles.evidenceHeaderContent}>
               <Text
                 style={[
                   styles.evidenceTitle,
                   {
-                    color:
-                      colors.text,
+                    color: colors.text,
                   },
                 ]}
               >
@@ -1358,13 +999,11 @@ export function ReportsPage({
                 style={[
                   styles.evidenceDescription,
                   {
-                    color:
-                      colors.muted,
+                    color: colors.muted,
                   },
                 ]}
               >
-                Fotos e vídeos do
-                problema encontrado.
+                Fotos e vídeos do problema encontrado.
               </Text>
             </View>
           </View>
@@ -1373,30 +1012,22 @@ export function ReportsPage({
             style={[
               styles.fieldLabel,
               {
-                color:
-                  colors.muted,
+                color: colors.muted,
               },
             ]}
           >
             FOTOS
           </Text>
 
-          <View
-            style={
-              styles.mediaButtons
-            }
-          >
+          <View style={styles.mediaButtons}>
             <TouchableOpacity
               style={[
                 styles.mediaButton,
                 {
-                  borderColor:
-                    colors.border,
+                  borderColor: colors.border,
                 },
               ]}
-              onPress={
-                takePhoto
-              }
+              onPress={takePhoto}
             >
               <Camera
                 size={18}
@@ -1407,8 +1038,7 @@ export function ReportsPage({
                 style={[
                   styles.mediaButtonText,
                   {
-                    color:
-                      colors.text,
+                    color: colors.text,
                   },
                 ]}
               >
@@ -1420,13 +1050,10 @@ export function ReportsPage({
               style={[
                 styles.mediaButton,
                 {
-                  borderColor:
-                    colors.border,
+                  borderColor: colors.border,
                 },
               ]}
-              onPress={
-                addPhotoFromGallery
-              }
+              onPress={addPhotoFromGallery}
             >
               <ImagePlus
                 size={18}
@@ -1437,8 +1064,7 @@ export function ReportsPage({
                 style={[
                   styles.mediaButtonText,
                   {
-                    color:
-                      colors.text,
+                    color: colors.text,
                   },
                 ]}
               >
@@ -1447,51 +1073,31 @@ export function ReportsPage({
             </TouchableOpacity>
           </View>
 
-          {photos.length >
-            0 && (
-            <View
-              style={
-                styles.photoGrid
-              }
-            >
-              {photos.map(
-                (
-                  photo,
-                  index,
-                ) => (
-                  <View
-                    key={`${photo}-${index}`}
-                    style={
-                      styles.photoContainer
-                    }
-                  >
-                    <Image
-                      source={{
-                        uri: photo,
-                      }}
-                      style={
-                        styles.photoPreview
-                      }
-                    />
+          {photos.length > 0 && (
+            <View style={styles.photoGrid}>
+              {photos.map((photo, index) => (
+                <View
+                  key={`${photo}-${index}`}
+                  style={styles.photoContainer}
+                >
+                  <Image
+                    source={{
+                      uri: photo,
+                    }}
+                    style={styles.photoPreview}
+                  />
 
-                    <TouchableOpacity
-                      style={
-                        styles.removeMediaButton
-                      }
-                      onPress={() =>
-                        removePhoto(
-                          index,
-                        )
-                      }
-                    >
-                      <Trash2
-                        size={14}
-                        color="#ffffff"
-                      />
-                    </TouchableOpacity>
-                  </View>
-                ),
-              )}
+                  <TouchableOpacity
+                    style={styles.removeMediaButton}
+                    onPress={() => removePhoto(index)}
+                  >
+                    <Trash2
+                      size={14}
+                      color="#ffffff"
+                    />
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           )}
 
@@ -1499,33 +1105,23 @@ export function ReportsPage({
             style={[
               styles.fieldLabel,
               {
-                color:
-                  colors.muted,
-
-                marginTop:
-                  20,
+                color: colors.muted,
+                marginTop: 20,
               },
             ]}
           >
             VÍDEOS
           </Text>
 
-          <View
-            style={
-              styles.mediaButtons
-            }
-          >
+          <View style={styles.mediaButtons}>
             <TouchableOpacity
               style={[
                 styles.mediaButton,
                 {
-                  borderColor:
-                    colors.border,
+                  borderColor: colors.border,
                 },
               ]}
-              onPress={
-                recordVideo
-              }
+              onPress={recordVideo}
             >
               <Video
                 size={18}
@@ -1536,8 +1132,7 @@ export function ReportsPage({
                 style={[
                   styles.mediaButtonText,
                   {
-                    color:
-                      colors.text,
+                    color: colors.text,
                   },
                 ]}
               >
@@ -1549,13 +1144,10 @@ export function ReportsPage({
               style={[
                 styles.mediaButton,
                 {
-                  borderColor:
-                    colors.border,
+                  borderColor: colors.border,
                 },
               ]}
-              onPress={
-                addVideoFromGallery
-              }
+              onPress={addVideoFromGallery}
             >
               <Play
                 size={18}
@@ -1566,8 +1158,7 @@ export function ReportsPage({
                 style={[
                   styles.mediaButtonText,
                   {
-                    color:
-                      colors.text,
+                    color: colors.text,
                   },
                 ]}
               >
@@ -1576,90 +1167,60 @@ export function ReportsPage({
             </TouchableOpacity>
           </View>
 
-          {videos.length >
-            0 && (
-            <View
-              style={
-                styles.videoList
-              }
-            >
-              {videos.map(
-                (
-                  video,
-                  index,
-                ) => (
-                  <View
-                    key={`${video}-${index}`}
-                    style={[
-                      styles.videoItem,
-                      {
-                        borderColor:
-                          colors.border,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={
-                        styles.videoIcon
-                      }
-                    >
-                      <Video
-                        size={20}
-                        color="#2563eb"
-                      />
-                    </View>
-
-                    <View
-                      style={
-                        styles.videoInformation
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.videoName,
-                          {
-                            color:
-                              colors.text,
-                          },
-                        ]}
-                      >
-                        Vídeo{' '}
-                        {index +
-                          1}
-                      </Text>
-
-                      <Text
-                        style={[
-                          styles.videoDescription,
-                          {
-                            color:
-                              colors.muted,
-                          },
-                        ]}
-                      >
-                        Evidência da
-                        não conformidade
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={
-                        styles.videoDeleteButton
-                      }
-                      onPress={() =>
-                        removeVideo(
-                          index,
-                        )
-                      }
-                    >
-                      <Trash2
-                        size={18}
-                        color="#dc2626"
-                      />
-                    </TouchableOpacity>
+          {videos.length > 0 && (
+            <View style={styles.videoList}>
+              {videos.map((video, index) => (
+                <View
+                  key={`${video}-${index}`}
+                  style={[
+                    styles.videoItem,
+                    {
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.videoIcon}>
+                    <Video
+                      size={20}
+                      color="#2563eb"
+                    />
                   </View>
-                ),
-              )}
+
+                  <View style={styles.videoInformation}>
+                    <Text
+                      style={[
+                        styles.videoName,
+                        {
+                          color: colors.text,
+                        },
+                      ]}
+                    >
+                      Vídeo {index + 1}
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.videoDescription,
+                        {
+                          color: colors.muted,
+                        },
+                      ]}
+                    >
+                      Evidência da não conformidade
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.videoDeleteButton}
+                    onPress={() => removeVideo(index)}
+                  >
+                    <Trash2
+                      size={18}
+                      color="#dc2626"
+                    />
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           )}
 
@@ -1667,60 +1228,42 @@ export function ReportsPage({
             style={[
               styles.mediaSummary,
               {
-                borderColor:
-                  colors.border,
+                borderColor: colors.border,
               },
             ]}
           >
             <Camera
               size={15}
-              color={
-                colors.muted
-              }
+              color={colors.muted}
             />
 
             <Text
               style={[
                 styles.mediaSummaryText,
                 {
-                  color:
-                    colors.muted,
+                  color: colors.muted,
                 },
               ]}
             >
               {photos.length}{' '}
-              {photos.length ===
-              1
-                ? 'foto'
-                : 'fotos'}
+              {photos.length === 1 ? 'foto' : 'fotos'}
               {' • '}
               {videos.length}{' '}
-              {videos.length ===
-              1
-                ? 'vídeo'
-                : 'vídeos'}
+              {videos.length === 1 ? 'vídeo' : 'vídeos'}
             </Text>
           </View>
         </View>
 
         <TouchableOpacity
-          style={
-            styles.saveButton
-          }
-          onPress={
-            handleSaveNonConformity
-          }
+          style={styles.saveButton}
+          onPress={handleSaveNonConformity}
         >
           <ClipboardList
             size={19}
             color="#ffffff"
           />
 
-          <Text
-            style={
-              styles.saveButtonText
-            }
-          >
+          <Text style={styles.saveButtonText}>
             Registrar não conformidade
           </Text>
         </TouchableOpacity>

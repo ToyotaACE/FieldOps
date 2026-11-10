@@ -30,8 +30,13 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
+        // Frontend web e Expo Web
         configuration.setAllowedOrigins(
-            List.of("http://localhost:5173")
+            List.of(
+                "http://localhost:5173",
+                "http://localhost:8081",
+                "http://localhost:8082"
+            )
         );
 
         configuration.setAllowedMethods(
@@ -90,7 +95,7 @@ public class SecurityConfig {
                 // Tratamento de erros
                 .requestMatchers("/error").permitAll()
 
-                // Perfil, atualização de dados e alteração de senha
+                // Perfil e autenticação
                 .requestMatchers("/api/v1/auth/**")
                 .authenticated()
 

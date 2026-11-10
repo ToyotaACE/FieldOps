@@ -1,3 +1,4 @@
+
 export type Page =
   | 'Dashboard'
   | 'Inspeções e relatórios'
@@ -22,9 +23,11 @@ export type Palette = {
 export type Status =
   | 'Agendada'
   | 'Em andamento'
+  | 'Concluída'
   | 'Aguardando revisão'
   | 'Aprovada'
-  | 'Reprovada';
+  | 'Reprovada'
+  | 'Cancelada';
 
 export type Priority =
   | 'Baixa'
@@ -41,7 +44,7 @@ export type Inspection = {
   date: string;
   status: Status;
   priority: Priority;
-  progress: number;
+  progress?: number | null;
 };
 
 /*
