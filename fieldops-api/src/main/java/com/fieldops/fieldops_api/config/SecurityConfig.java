@@ -30,7 +30,6 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Frontend web e Expo Web
         configuration.setAllowedOrigins(
             List.of(
                 "http://localhost:5173",
@@ -123,11 +122,31 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/inspection-template-versions/**")
                 .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                // Seções dos modelos
+                // Consulta de seções: ADMIN, SUPERVISOR e TECHNICIAN
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/template-sections/**"
+                ).hasAnyRole(
+                    "ADMIN",
+                    "SUPERVISOR",
+                    "TECHNICIAN"
+                )
+
+                // Alteração de seções: somente ADMIN e SUPERVISOR
                 .requestMatchers("/api/v1/template-sections/**")
                 .hasAnyRole("ADMIN", "SUPERVISOR")
 
-                // Itens dos modelos
+                // Consulta de itens: ADMIN, SUPERVISOR e TECHNICIAN
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/v1/template-items/**"
+                ).hasAnyRole(
+                    "ADMIN",
+                    "SUPERVISOR",
+                    "TECHNICIAN"
+                )
+
+                // Alteração de itens: somente ADMIN e SUPERVISOR
                 .requestMatchers("/api/v1/template-items/**")
                 .hasAnyRole("ADMIN", "SUPERVISOR")
 

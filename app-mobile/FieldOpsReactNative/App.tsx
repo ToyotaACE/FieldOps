@@ -55,8 +55,15 @@ import {
 import {
   getCurrentUser,
   getInspections,
+  getInspectionChecklist,
+  getInspectionAnswers,
+  createInspectionAnswer,
+  updateInspectionAnswer,
   type AuthUser,
   type BackendInspection,
+  type TemplateSection,
+  type TemplateItem,
+  type InspectionAnswer,
 } from './src/services/api';
 
 import {
@@ -129,7 +136,7 @@ function mapBackendInspection(
 ): Inspection {
   return {
     id: String(backendInspection.id),
-
+    templateVersionId: backendInspection.templateVersionId,
     client: backendInspection.clientName,
     location: backendInspection.siteName,
     equipment: backendInspection.equipmentName,
@@ -165,22 +172,9 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  const [
-    page,
-    setPage,
-  ] = useState<Page>(
-    'Dashboard',
-  );
-
-  const [
-    showReports,
-    setShowReports,
-  ] = useState(false);
-
-  const [
-    drawerOpen,
-    setDrawerOpen,
-  ] = useState(false);
+  const [page, setPage] = useState<Page>('Dashboard');
+  const [showReports, setShowReports] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   /*
   |--------------------------------------------------------------------------
@@ -188,25 +182,10 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  const [
-    isAuthenticated,
-    setIsAuthenticated,
-  ] = useState(false);
-
-  const [
-    checkingSession,
-    setCheckingSession,
-  ] = useState(true);
-
-  const [
-    currentUser,
-    setCurrentUser,
-  ] = useState<AuthUser | null>(null);
-
-  const [
-    authToken,
-    setAuthToken,
-  ] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   /*
   |--------------------------------------------------------------------------
@@ -214,15 +193,25 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  const [
-    loadingInspections,
-    setLoadingInspections,
-  ] = useState(false);
+  const [loadingInspections, setLoadingInspections] = useState(false);
+  const [inspectionsError, setInspectionsError] = useState<string | null>(null);
 
-  const [
-    inspectionsError,
-    setInspectionsError,
-  ] = useState<string | null>(null);
+  /*
+  |--------------------------------------------------------------------------
+  | CHECKLIST E RESPOSTAS DA INSPEÇÃO
+  |--------------------------------------------------------------------------
+  */
+
+  const [inspectionChecklist, setInspectionChecklist] = useState<
+    { section: TemplateSection; items: TemplateItem[] }[]
+  >([]);
+
+  const [inspectionAnswers, setInspectionAnswers] = useState<
+    InspectionAnswer[]
+  >([]);
+
+  const [loadingChecklist, setLoadingChecklist] = useState(false);
+  const [checklistError, setChecklistError] = useState<string | null>(null);
 
   /*
   |--------------------------------------------------------------------------
@@ -230,15 +219,11 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  const [
-    darkMode,
-    setDarkMode,
-  ] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
-  const colors =
-    darkMode
-      ? palettes.dark
-      : palettes.light;
+  const colors = darkMode
+    ? palettes.dark
+    : palettes.light;
 
   /*
   |--------------------------------------------------------------------------
@@ -246,10 +231,7 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  const [
-    modalOpen,
-    setModalOpen,
-  ] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   /*
   |--------------------------------------------------------------------------
@@ -257,10 +239,7 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  const [
-    query,
-    setQuery,
-  ] = useState('');
+  const [query, setQuery] = useState('');
 
   /*
   |--------------------------------------------------------------------------
@@ -268,17 +247,8 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  const [
-    inspections,
-    setInspections,
-  ] = useState<Inspection[]>([]);
-
-  const [
-    selectedInspection,
-    setSelectedInspection,
-  ] = useState<Inspection | null>(
-    null,
-  );
+  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
 
   /*
   |--------------------------------------------------------------------------
@@ -286,10 +256,7 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  const [
-    nonConformities,
-    setNonConformities,
-  ] = useState<NonConformity[]>([]);
+  const [nonConformities, setNonConformities] = useState<NonConformity[]>([]);
 
   /*
   |--------------------------------------------------------------------------
@@ -302,59 +269,41 @@ export default function App() {
 
     async function restoreSession() {
       try {
-        const token = await AsyncStorage.getItem(
-          'fieldops_token',
-        );
+        const token = await AsyncStorage.getItem('fieldops_token');
+        const savedUser = await AsyncStorage.getItem('fieldops_user');
 
-        const savedUser = await AsyncStorage.getItem(
-          'fieldops_user',
-        );
-
-        if (!mounted) {
-          return;
-        }
+        if (!mounted) return;
 
         if (!token || !savedUser) {
           await AsyncStorage.multiRemove([
             'fieldops_token',
             'fieldops_user',
           ]);
-
           return;
         }
 
         const user = await getCurrentUser(token);
 
-        if (!mounted) {
-          return;
-        }
+        if (!mounted) return;
 
         await AsyncStorage.setItem(
           'fieldops_user',
           JSON.stringify(user),
         );
 
-        if (!mounted) {
-          return;
-        }
+        if (!mounted) return;
 
         setCurrentUser(user);
         setAuthToken(token);
         setIsAuthenticated(true);
       } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Erro desconhecido ao validar a sessão.';
+        const message = error instanceof Error
+          ? error.message
+          : 'Erro desconhecido ao validar a sessão.';
 
-        console.error(
-          'Erro ao restaurar sessão:',
-          message,
-        );
+        console.error('Erro ao restaurar sessão:', message);
 
-        if (!mounted) {
-          return;
-        }
+        if (!mounted) return;
 
         if (
           message === 'SESSION_INVALID' ||
@@ -366,10 +315,7 @@ export default function App() {
               'fieldops_user',
             ]);
           } catch (storageError) {
-            console.error(
-              'Erro ao limpar sessão inválida:',
-              storageError,
-            );
+            console.error('Erro ao limpar sessão inválida:', storageError);
           }
         }
 
@@ -429,65 +375,43 @@ export default function App() {
     let mounted = true;
 
     async function loadInspections() {
-      if (!isAuthenticated || !authToken) {
-        return;
-      }
+      if (!isAuthenticated || !authToken) return;
 
       try {
         setLoadingInspections(true);
         setInspectionsError(null);
 
-        const backendInspections =
-          await getInspections(authToken);
+        const backendInspections = await getInspections(authToken);
 
-        if (!mounted) {
-          return;
-        }
+        if (!mounted) return;
 
-        const mappedInspections =
-          backendInspections.map(
-            mapBackendInspection,
-          );
+        const mappedInspections = backendInspections.map(
+          mapBackendInspection,
+        );
 
         setInspections(mappedInspections);
 
-        /*
-         * Atualiza também a inspeção selecionada,
-         * caso ela ainda esteja na lista retornada.
-         */
         setSelectedInspection((currentSelected) => {
-          if (!currentSelected) {
-            return null;
-          }
+          if (!currentSelected) return null;
 
           return (
             mappedInspections.find(
-              (inspection) =>
-                inspection.id === currentSelected.id,
+              (inspection) => inspection.id === currentSelected.id,
             ) ?? currentSelected
           );
         });
       } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível carregar as inspeções.';
+        const message = error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar as inspeções.';
 
-        console.error(
-          'Erro ao carregar inspeções:',
-          error,
-        );
+        console.error('Erro ao carregar inspeções:', error);
 
-        if (!mounted) {
-          return;
-        }
+        if (!mounted) return;
 
         setInspectionsError(message);
 
-        Alert.alert(
-          'Erro ao carregar inspeções',
-          message,
-        );
+        Alert.alert('Erro ao carregar inspeções', message);
       } finally {
         if (mounted) {
           setLoadingInspections(false);
@@ -500,10 +424,7 @@ export default function App() {
     return () => {
       mounted = false;
     };
-  }, [
-    isAuthenticated,
-    authToken,
-  ]);
+  }, [isAuthenticated, authToken]);
 
   /*
   |--------------------------------------------------------------------------
@@ -511,28 +432,19 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  const filteredInspections =
-    useMemo(() => {
-      const normalizedQuery =
-        query
-          .trim()
-          .toLowerCase();
+  const filteredInspections = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
 
-      if (!normalizedQuery) {
-        return inspections;
-      }
+    if (!normalizedQuery) return inspections;
 
-      return inspections.filter(
-        (inspection) =>
-          Object.values(inspection)
-            .join(' ')
-            .toLowerCase()
-            .includes(normalizedQuery),
-      );
-    }, [
-      inspections,
-      query,
-    ]);
+    return inspections.filter(
+      (inspection) =>
+        Object.values(inspection)
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedQuery),
+    );
+  }, [inspections, query]);
 
   /*
   |--------------------------------------------------------------------------
@@ -553,12 +465,145 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  function openInspection(
-    inspection: Inspection,
-  ) {
+  function openInspection(inspection: Inspection) {
     setSelectedInspection(inspection);
     setPage('Inspeções e relatórios');
     setShowReports(false);
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | CARREGAR CHECKLIST E RESPOSTAS DA INSPEÇÃO
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadChecklist() {
+      if (!selectedInspection || !authToken || !isAuthenticated) {
+        setInspectionChecklist([]);
+        setInspectionAnswers([]);
+        return;
+      }
+
+      try {
+        setLoadingChecklist(true);
+        setChecklistError(null);
+
+        const inspectionId = Number(selectedInspection.id);
+
+        const [checklist, answers] = await Promise.all([
+          getInspectionChecklist(
+            authToken,
+            selectedInspection.templateVersionId,
+          ),
+          getInspectionAnswers(
+            authToken,
+            inspectionId,
+          ),
+        ]);
+
+        if (!mounted) return;
+
+        setInspectionChecklist(checklist);
+        setInspectionAnswers(answers);
+      } catch (error) {
+        if (!mounted) return;
+
+        const message = error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar o checklist.';
+
+        setChecklistError(message);
+
+        Alert.alert('Erro ao carregar inspeção', message);
+      } finally {
+        if (mounted) {
+          setLoadingChecklist(false);
+        }
+      }
+    }
+
+    loadChecklist();
+
+    return () => {
+      mounted = false;
+    };
+  }, [
+    selectedInspection?.id,
+    selectedInspection?.templateVersionId,
+    authToken,
+    isAuthenticated,
+  ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | SALVAR RESPOSTA DA INSPEÇÃO
+  |--------------------------------------------------------------------------
+  */
+
+  async function saveInspectionAnswer(
+    templateItemId: number,
+    value: string,
+    observation: string,
+  ) {
+    if (!selectedInspection || !authToken) {
+      Alert.alert('Erro', 'Nenhuma inspeção selecionada.');
+      return;
+    }
+
+    try {
+      const inspectionId = Number(selectedInspection.id);
+
+      const existingAnswer = inspectionAnswers.find(
+        (answer) => answer.templateItemId === templateItemId,
+      );
+
+      const answerData = {
+        templateItemId,
+        value,
+        observation,
+      };
+
+      let savedAnswer: InspectionAnswer;
+
+      if (existingAnswer) {
+        savedAnswer = await updateInspectionAnswer(
+          authToken,
+          inspectionId,
+          existingAnswer.id,
+          answerData,
+        );
+
+        setInspectionAnswers((current) =>
+          current.map((answer) =>
+            answer.id === existingAnswer.id
+              ? savedAnswer
+              : answer,
+          ),
+        );
+      } else {
+        savedAnswer = await createInspectionAnswer(
+          authToken,
+          inspectionId,
+          answerData,
+        );
+
+        setInspectionAnswers((current) => [
+          ...current,
+          savedAnswer,
+        ]);
+      }
+
+      Alert.alert('Sucesso', 'Resposta salva no FieldOps.');
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'Não foi possível salvar a resposta.';
+
+      Alert.alert('Erro ao salvar resposta', message);
+    }
   }
 
   /*
@@ -567,26 +612,20 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  function updateInspectionStatus(
-    status: Status,
-  ) {
-    if (!selectedInspection) {
-      return;
-    }
+  function updateInspectionStatus(status: Status) {
+    if (!selectedInspection) return;
 
     const updatedInspection: Inspection = {
       ...selectedInspection,
       status,
     };
 
-    setInspections(
-      (currentInspections) =>
-        currentInspections.map(
-          (inspection) =>
-            inspection.id === selectedInspection.id
-              ? updatedInspection
-              : inspection,
-        ),
+    setInspections((currentInspections) =>
+      currentInspections.map((inspection) =>
+        inspection.id === selectedInspection.id
+          ? updatedInspection
+          : inspection,
+      ),
     );
 
     setSelectedInspection(updatedInspection);
@@ -598,15 +637,11 @@ export default function App() {
   |--------------------------------------------------------------------------
   */
 
-  function createNonConformity(
-    nonConformity: NonConformity,
-  ) {
-    setNonConformities(
-      (current) => [
-        nonConformity,
-        ...current,
-      ],
-    );
+  function createNonConformity(nonConformity: NonConformity) {
+    setNonConformities((current) => [
+      nonConformity,
+      ...current,
+    ]);
   }
 
   /*
@@ -639,16 +674,16 @@ export default function App() {
         'fieldops_user',
       ]);
     } catch (error) {
-      console.error(
-        'Erro ao limpar sessão:',
-        error,
-      );
+      console.error('Erro ao limpar sessão:', error);
     } finally {
       setCurrentUser(null);
       setAuthToken(null);
       setIsAuthenticated(false);
       setInspections([]);
       setInspectionsError(null);
+      setInspectionChecklist([]);
+      setInspectionAnswers([]);
+      setChecklistError(null);
     }
   }
 
@@ -671,11 +706,7 @@ export default function App() {
         ]}
       >
         <StatusBar
-          barStyle={
-            darkMode
-              ? 'light-content'
-              : 'dark-content'
-          }
+          barStyle={darkMode ? 'light-content' : 'dark-content'}
           backgroundColor={colors.panel}
         />
 
@@ -713,11 +744,7 @@ export default function App() {
         ]}
       >
         <StatusBar
-          barStyle={
-            darkMode
-              ? 'light-content'
-              : 'dark-content'
-          }
+          barStyle={darkMode ? 'light-content' : 'dark-content'}
           backgroundColor={colors.panel}
         />
 
@@ -737,12 +764,6 @@ export default function App() {
 
   function renderCurrentPage() {
     switch (page) {
-      /*
-      |--------------------------------------------------------------------------
-      | DASHBOARD
-      |--------------------------------------------------------------------------
-      */
-
       case 'Dashboard':
         if (loadingInspections) {
           return (
@@ -785,35 +806,19 @@ export default function App() {
           />
         );
 
-      /*
-      |--------------------------------------------------------------------------
-      | INSPEÇÕES
-      |--------------------------------------------------------------------------
-      */
-
       case 'Inspeções e relatórios':
         return (
           <InspectionsReportsPage
             colors={colors}
             showReports={showReports}
-            onOpenReports={() =>
-              setShowReports(true)
-            }
-            onBackToInspections={() =>
-              setShowReports(false)
-            }
+            onOpenReports={() => setShowReports(true)}
+            onBackToInspections={() => setShowReports(false)}
             inspections={filteredInspections}
             selected={selectedInspection}
             onOpenInspection={openInspection}
-            onBack={() =>
-              setSelectedInspection(null)
-            }
-            onApprove={() =>
-              updateInspectionStatus('Aprovada')
-            }
-            onReject={() =>
-              updateInspectionStatus('Reprovada')
-            }
+            onBack={() => setSelectedInspection(null)}
+            onApprove={() => updateInspectionStatus('Aprovada')}
+            onReject={() => updateInspectionStatus('Reprovada')}
             onNewInspection={() =>
               Alert.alert(
                 'Nova inspeção',
@@ -821,27 +826,16 @@ export default function App() {
               )
             }
             onCreateNonConformity={createNonConformity}
+            checklist={inspectionChecklist}
+            answers={inspectionAnswers}
+            loadingChecklist={loadingChecklist}
+            checklistError={checklistError}
+            onSaveAnswer={saveInspectionAnswer}
           />
         );
-
-      /*
-      |--------------------------------------------------------------------------
-      | CALENDÁRIO
-      |--------------------------------------------------------------------------
-      */
 
       case 'Calendário':
-        return (
-          <CalendarPage
-            colors={colors}
-          />
-        );
-
-      /*
-      |--------------------------------------------------------------------------
-      | MODELOS DE INSPEÇÃO
-      |--------------------------------------------------------------------------
-      */
+        return <CalendarPage colors={colors} />;
 
       case 'Modelos de inspeção':
         return (
@@ -851,12 +845,6 @@ export default function App() {
           />
         );
 
-      /*
-      |--------------------------------------------------------------------------
-      | CLIENTES
-      |--------------------------------------------------------------------------
-      */
-
       case 'Clientes':
         return (
           <ClientsPage
@@ -865,24 +853,8 @@ export default function App() {
           />
         );
 
-      /*
-      |--------------------------------------------------------------------------
-      | LOCAIS
-      |--------------------------------------------------------------------------
-      */
-
       case 'Locais':
-        return (
-          <LocationsPage
-            colors={colors}
-          />
-        );
-
-      /*
-      |--------------------------------------------------------------------------
-      | EQUIPAMENTOS
-      |--------------------------------------------------------------------------
-      */
+        return <LocationsPage colors={colors} />;
 
       case 'Equipamentos':
         return (
@@ -892,12 +864,6 @@ export default function App() {
           />
         );
 
-      /*
-      |--------------------------------------------------------------------------
-      | NÃO CONFORMIDADES
-      |--------------------------------------------------------------------------
-      */
-
       case 'Não conformidades':
         return (
           <NonConformitiesPage
@@ -905,12 +871,6 @@ export default function App() {
             nonConformities={nonConformities}
           />
         );
-
-      /*
-      |--------------------------------------------------------------------------
-      | AUDITORIA
-      |--------------------------------------------------------------------------
-      */
 
       case 'Auditoria':
         return (
@@ -920,21 +880,13 @@ export default function App() {
           />
         );
 
-      /*
-      |--------------------------------------------------------------------------
-      | CONFIGURAÇÕES
-      |--------------------------------------------------------------------------
-      */
-
       case 'Configurações':
         return (
           <SettingsPage
             colors={colors}
             darkMode={darkMode}
             onToggleDarkMode={() =>
-              setDarkMode(
-                (currentValue) => !currentValue,
-              )
+              setDarkMode((currentValue) => !currentValue)
             }
           />
         );
@@ -976,11 +928,7 @@ export default function App() {
       ]}
     >
       <StatusBar
-        barStyle={
-          darkMode
-            ? 'light-content'
-            : 'dark-content'
-        }
+        barStyle={darkMode ? 'light-content' : 'dark-content'}
         backgroundColor={colors.panel}
       />
 
@@ -999,19 +947,14 @@ export default function App() {
           onPress={() => setDrawerOpen(true)}
           style={styles.iconButton}
         >
-          <Menu
-            size={23}
-            color={colors.text}
-          />
+          <Menu size={23} color={colors.text} />
         </TouchableOpacity>
 
         <View style={styles.headerTitleWrapper}>
           <Text
             style={[
               styles.headerKicker,
-              {
-                color: colors.muted,
-              },
+              { color: colors.muted },
             ]}
           >
             OPERAÇÕES
@@ -1020,9 +963,7 @@ export default function App() {
           <Text
             style={[
               styles.headerTitle,
-              {
-                color: colors.text,
-              },
+              { color: colors.text },
             ]}
             numberOfLines={1}
           >
@@ -1034,22 +975,14 @@ export default function App() {
 
         <TouchableOpacity
           onPress={() =>
-            setDarkMode(
-              (currentValue) => !currentValue,
-            )
+            setDarkMode((currentValue) => !currentValue)
           }
           style={styles.iconButton}
         >
           {darkMode ? (
-            <Sun
-              size={20}
-              color={colors.muted}
-            />
+            <Sun size={20} color={colors.muted} />
           ) : (
-            <Moon
-              size={20}
-              color={colors.muted}
-            />
+            <Moon size={20} color={colors.muted} />
           )}
         </TouchableOpacity>
 
@@ -1064,11 +997,7 @@ export default function App() {
           }
           style={styles.iconButton}
         >
-          <Bell
-            size={20}
-            color={colors.muted}
-          />
-
+          <Bell size={20} color={colors.muted} />
           <View style={styles.notificationDot} />
         </TouchableOpacity>
       </View>
@@ -1085,10 +1014,7 @@ export default function App() {
             },
           ]}
         >
-          <Search
-            size={18}
-            color={colors.muted}
-          />
+          <Search size={18} color={colors.muted} />
 
           <TextInput
             value={query}
@@ -1097,9 +1023,7 @@ export default function App() {
             placeholderTextColor={colors.muted}
             style={[
               styles.searchInput,
-              {
-                color: colors.text,
-              },
+              { color: colors.text },
             ]}
           />
         </View>
@@ -1158,9 +1082,7 @@ export default function App() {
           <View
             style={[
               styles.modal,
-              {
-                backgroundColor: colors.panel,
-              },
+              { backgroundColor: colors.panel },
             ]}
           >
             <TouchableOpacity
@@ -1177,9 +1099,7 @@ export default function App() {
             <Text
               style={[
                 styles.modalTitle,
-                {
-                  color: colors.text,
-                },
+                { color: colors.text },
               ]}
             >
               Novo registro
@@ -1188,9 +1108,7 @@ export default function App() {
             <Text
               style={[
                 styles.modalText,
-                {
-                  color: colors.muted,
-                },
+                { color: colors.muted },
               ]}
             >
               Formulário preparado

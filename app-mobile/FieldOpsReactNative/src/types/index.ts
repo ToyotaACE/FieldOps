@@ -37,6 +37,10 @@ export type Priority =
 
 export type Inspection = {
   id: string;
+
+  // Identificador da versão do modelo escolhido pelo supervisor
+  templateVersionId: number;
+
   client: string;
   location: string;
   equipment: string;

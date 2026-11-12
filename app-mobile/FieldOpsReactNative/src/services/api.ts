@@ -18,27 +18,21 @@ type LoginResponse = {
   tokenType: string;
 };
 
-// Dados retornados pela API para cada inspeção.
 export type BackendInspection = {
   id: number;
   title: string;
-
   templateVersionId: number;
   clientId: number;
   siteId: number;
   equipmentId: number;
   technicianId: number;
-
   clientName: string;
   siteName: string;
   equipmentName: string;
   technicianName: string;
-
   scheduledDate: string;
   scheduledTime: string;
-
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
-
   status:
     | 'SCHEDULED'
     | 'IN_PROGRESS'
@@ -47,10 +41,101 @@ export type BackendInspection = {
     | 'APPROVED'
     | 'REJECTED'
     | 'CANCELLED';
-
   createdAt: string;
   updatedAt: string;
 };
+
+export type TemplateSection = {
+  id: number;
+  templateVersionId: number;
+  title: string;
+  description?: string | null;
+  displayOrder: number;
+  createdAt?: string;
+};
+
+export type ResponseType =
+  | 'TEXT_SHORT'
+  | 'TEXT_LONG'
+  | 'NUMBER'
+  | 'BOOLEAN'
+  | 'CONFORMITY'
+  | 'SINGLE_CHOICE'
+  | 'DATE';
+
+export type TemplateItem = {
+  id: number;
+  sectionId: number;
+  label: string;
+  description?: string | null;
+  responseType: ResponseType;
+  required: boolean;
+  requiresObservationOnNonconformity: boolean;
+  criticalOnNonconformity: boolean;
+  requiresEvidence: boolean;
+  displayOrder: number;
+  createdAt?: string;
+};
+
+export type InspectionAnswer = {
+  id: number;
+  inspectionId: number;
+  templateItemId: number;
+  value: string | null;
+  observation: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type InspectionEvidence = {
+  id: number;
+  answerId: number;
+  originalFilename: string;
+  contentType: string;
+  uploadedAt: string;
+};
+
+export type InspectionAnswerRequest = {
+  templateItemId: number;
+  value: string;
+  observation?: string | null;
+};
+
+/**
+ * Executa requisições autenticadas na API.
+ */
+async function authenticatedFetch(
+  path: string,
+  token: string,
+  options: RequestInit = {},
+): Promise<Response> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+  } catch {
+    throw new Error(
+      'Não foi possível conectar ao servidor. Verifique se o backend está ativo.',
+    );
+  }
+
+  if (response.status === 401) {
+    throw new Error('SESSION_INVALID');
+  }
+
+  if (response.status === 403) {
+    throw new Error('Você não tem permissão para realizar esta operação.');
+  }
+
+  return response;
+}
 
 /**
  * Busca o perfil do usuário e valida o token no backend.
@@ -58,25 +143,7 @@ export type BackendInspection = {
 export async function getCurrentUser(
   token: string,
 ): Promise<AuthUser> {
-  let response: Response;
-
-  try {
-    response = await fetch(`${API_URL}/auth/me`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  } catch {
-    throw new Error(
-      'Não foi possível conectar ao servidor. Verifique sua conexão.',
-    );
-  }
-
-  if (response.status === 401 || response.status === 403) {
-    throw new Error('SESSION_INVALID');
-  }
+  const response = await authenticatedFetch('/auth/me', token);
 
   if (!response.ok) {
     throw new Error(
@@ -146,40 +213,11 @@ export async function loginRequest(
 
 /**
  * Busca as inspeções do usuário autenticado.
- *
- * O backend já aplica as permissões:
- * - ADMIN: consulta todas as inspeções.
- * - SUPERVISOR: consulta todas as inspeções.
- * - TECHNICIAN: consulta somente as próprias inspeções.
  */
 export async function getInspections(
   token: string,
 ): Promise<BackendInspection[]> {
-  let response: Response;
-
-  try {
-    response = await fetch(`${API_URL}/inspections`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  } catch {
-    throw new Error(
-      'Não foi possível carregar as inspeções. Verifique se o backend está ativo.',
-    );
-  }
-
-  if (response.status === 401) {
-    throw new Error('SESSION_INVALID');
-  }
-
-  if (response.status === 403) {
-    throw new Error(
-      'Você não tem permissão para consultar as inspeções.',
-    );
-  }
+  const response = await authenticatedFetch('/inspections', token);
 
   if (!response.ok) {
     throw new Error(
@@ -196,4 +234,247 @@ export async function getInspections(
   }
 
   return inspections;
+}
+
+/**
+ * Busca as seções da versão exata vinculada à inspeção.
+ */
+export async function getTemplateSections(
+  token: string,
+  templateVersionId: number,
+): Promise<TemplateSection[]> {
+  const response = await authenticatedFetch(
+    `/template-sections/version/${templateVersionId}`,
+    token,
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Erro ao buscar seções do modelo. HTTP: ${response.status}`,
+    );
+  }
+
+  const sections: TemplateSection[] = await response.json();
+
+  return sections.sort((a, b) => a.displayOrder - b.displayOrder);
+}
+
+/**
+ * Busca as perguntas de uma seção.
+ */
+export async function getTemplateItems(
+  token: string,
+  sectionId: number,
+): Promise<TemplateItem[]> {
+  const response = await authenticatedFetch(
+    `/template-sections/${sectionId}/items`,
+    token,
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Erro ao buscar perguntas da seção. HTTP: ${response.status}`,
+    );
+  }
+
+  const items: TemplateItem[] = await response.json();
+
+  return items.sort((a, b) => a.displayOrder - b.displayOrder);
+}
+
+/**
+ * Busca todas as perguntas de todas as seções de uma versão.
+ */
+export async function getInspectionChecklist(
+  token: string,
+  templateVersionId: number,
+): Promise<{ section: TemplateSection; items: TemplateItem[] }[]> {
+  const sections = await getTemplateSections(token, templateVersionId);
+
+  return Promise.all(
+    sections.map(async (section) => ({
+      section,
+      items: await getTemplateItems(token, section.id),
+    })),
+  );
+}
+
+/**
+ * Busca as respostas já salvas na inspeção.
+ */
+export async function getInspectionAnswers(
+  token: string,
+  inspectionId: number,
+): Promise<InspectionAnswer[]> {
+  const response = await authenticatedFetch(
+    `/inspections/${inspectionId}/answers`,
+    token,
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Erro ao buscar respostas. HTTP: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Cria uma resposta para uma pergunta.
+ */
+export async function createInspectionAnswer(
+  token: string,
+  inspectionId: number,
+  data: InspectionAnswerRequest,
+): Promise<InspectionAnswer> {
+  const response = await authenticatedFetch(
+    `/inspections/${inspectionId}/answers`,
+    token,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Erro ao salvar resposta. HTTP: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Atualiza uma resposta existente.
+ */
+export async function updateInspectionAnswer(
+  token: string,
+  inspectionId: number,
+  answerId: number,
+  data: InspectionAnswerRequest,
+): Promise<InspectionAnswer> {
+  const response = await authenticatedFetch(
+    `/inspections/${inspectionId}/answers/${answerId}`,
+    token,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Erro ao atualizar resposta. HTTP: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Envia uma fotografia vinculada a uma resposta.
+ */
+export async function uploadInspectionEvidence(
+  token: string,
+  answerId: number,
+  file: {
+    uri: string;
+    name: string;
+    type: string;
+  },
+): Promise<InspectionEvidence> {
+  const formData = new FormData();
+
+  formData.append(
+    'file',
+    {
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
+    } as unknown as Blob,
+  );
+
+  const response = await authenticatedFetch(
+    `/inspection-evidences/answers/${answerId}`,
+    token,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Erro ao enviar fotografia. HTTP: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Busca as evidências vinculadas a uma resposta.
+ */
+export async function getAnswerEvidences(
+  token: string,
+  answerId: number,
+): Promise<InspectionEvidence[]> {
+  const response = await authenticatedFetch(
+    `/inspection-evidences/answers/${answerId}`,
+    token,
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Erro ao buscar evidências. HTTP: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Retorna a URL do arquivo de evidência.
+ * Use o token Bearer ao buscar o arquivo.
+ */
+export function getEvidenceFileUrl(evidenceId: number): string {
+  return `${API_URL}/inspection-evidences/${evidenceId}/file`;
+}
+
+/**
+ * Atualiza o status da inspeção.
+ */
+export async function updateInspectionStatus(
+  token: string,
+  inspectionId: number,
+  status:
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
+    | 'UNDER_REVIEW'
+    | 'APPROVED'
+    | 'REJECTED',
+): Promise<void> {
+  const response = await authenticatedFetch(
+    `/inspections/${inspectionId}/status?status=${status}`,
+    token,
+    {
+      method: 'PATCH',
+    },
+  );
+
+  if (!response.ok) {
+    const message = await response.text();
+
+    throw new Error(
+      message || `Erro ao atualizar status. HTTP: ${response.status}`,
+    );
+  }
 }
