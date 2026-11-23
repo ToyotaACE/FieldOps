@@ -33,6 +33,7 @@ import {
   Palette,
 } from '../types';
 
+import { PageContent } from '../components/PageContent';
 import {
   nonConformitiesPageStyles as styles,
 } from './NonConformitiesPage.styles';
@@ -42,6 +43,7 @@ type NonConformitiesPageProps = {
 
   nonConformities:
     NonConformity[];
+  embedded?: boolean;
 };
 
 type StatusFilter =
@@ -51,6 +53,7 @@ type StatusFilter =
 export function NonConformitiesPage({
   colors,
   nonConformities,
+  embedded = false,
 }: NonConformitiesPageProps) {
   const [
     searchText,
@@ -237,7 +240,8 @@ export function NonConformitiesPage({
   }
 
   return (
-    <ScrollView
+    <PageContent
+      embedded={embedded}
       contentContainerStyle={
         styles.content
       }
@@ -1267,6 +1271,6 @@ export function NonConformitiesPage({
           )}
         </View>
       )}
-    </ScrollView>
+    </PageContent>
   );
 }

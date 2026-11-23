@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CalendarDays, CheckCircle2, Ellipsis, MapPin, Plus, QrCode, Search, SlidersHorizontal, Wrench } from 'lucide-react-native';
 
 import { Palette } from '../types';
+import { PageContent } from '../components/PageContent';
 import { equipmentPageStyles as styles } from './EquipmentPage.styles';
 
 type EquipmentPageProps = {
   colors: Palette;
   onNew: () => void;
+  embedded?: boolean;
 };
 
 type Equipment = {
@@ -28,7 +30,7 @@ const equipment: Equipment[] = [
   { id: 'EQP-022', name: 'Bomba Hidráulica', tag: 'BH-022', type: 'Bomba centrífuga', location: 'Planta Sorocaba · Utilidades', status: 'Parado', nextInspection: '25 ago 2026', lastInspection: '10 ago 2026' },
 ];
 
-export function EquipmentPage({ colors, onNew }: EquipmentPageProps) {
+export function EquipmentPage({ colors, onNew, embedded = false }: EquipmentPageProps) {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Todos' | Equipment['status']>('Todos');
 
@@ -46,7 +48,7 @@ export function EquipmentPage({ colors, onNew }: EquipmentPageProps) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <PageContent embedded={embedded} contentContainerStyle={styles.content}>
       <View style={styles.heading}>
         <View style={styles.headingText}>
           <Text style={styles.eyebrow}>ATIVOS OPERACIONAIS</Text>
@@ -130,6 +132,6 @@ export function EquipmentPage({ colors, onNew }: EquipmentPageProps) {
       })}
 
       {filteredEquipment.length === 0 && <View style={[styles.emptyState, { backgroundColor: colors.panel, borderColor: colors.border }]}><Search size={24} color={colors.muted} /><Text style={[styles.emptyTitle, { color: colors.text }]}>Nenhum equipamento encontrado</Text><Text style={[styles.emptyText, { color: colors.muted }]}>Ajuste a busca ou o filtro de status.</Text></View>}
-    </ScrollView>
+    </PageContent>
   );
 }

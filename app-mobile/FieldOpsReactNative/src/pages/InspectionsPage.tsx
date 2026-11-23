@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   ActivityIndicator,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react-native';
 
 import { InspectionCard } from '../components/InspectionCard';
+import { PageContent } from '../components/PageContent';
 import { StatusBadge } from '../components/StatusBadge';
 
 import {
@@ -46,8 +46,8 @@ type InspectionsPageProps = {
   onBack: () => void;
   onApprove: () => void;
   onReject: () => void;
-  onNewInspection: () => void;
   onOpenReports: () => void;
+  embedded?: boolean;
 
   checklist: {
     section: TemplateSection;
@@ -74,6 +74,7 @@ export function InspectionsPage({
   onBack,
   onApprove,
   onOpenReports,
+  embedded = false,
   checklist,
   answers,
   loadingChecklist,
@@ -176,7 +177,7 @@ export function InspectionsPage({
     }
 
     return (
-      <ScrollView contentContainerStyle={styles.content}>
+      <PageContent embedded={embedded} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={onBack}>
           <Text style={styles.back}>
             ← Voltar para inspeções
@@ -555,12 +556,12 @@ export function InspectionsPage({
             </Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </PageContent>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <PageContent embedded={embedded} contentContainerStyle={styles.content}>
       <View style={styles.heading}>
         <View style={styles.headingText}>
           <Text style={styles.eyebrow}>
@@ -603,6 +604,6 @@ export function InspectionsPage({
           Nenhuma inspeção encontrada.
         </Text>
       )}
-    </ScrollView>
+    </PageContent>
   );
 }

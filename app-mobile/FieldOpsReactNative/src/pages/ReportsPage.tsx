@@ -4,7 +4,6 @@ import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Image,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -35,6 +34,7 @@ import {
   Palette,
 } from '../types';
 
+import { PageContent } from '../components/PageContent';
 import {
   reportsPageStyles as styles,
 } from './ReportsPage.styles';
@@ -42,6 +42,7 @@ import {
 type ReportsPageProps = {
   colors: Palette;
   onBack: () => void;
+  embedded?: boolean;
   onCreateNonConformity: (
     nonConformity: NonConformity,
   ) => void;
@@ -106,6 +107,7 @@ const SEVERITIES: NonConformitySeverity[] = [
 export function ReportsPage({
   colors,
   onBack,
+  embedded = false,
   onCreateNonConformity,
 }: ReportsPageProps) {
   const [
@@ -465,7 +467,8 @@ export function ReportsPage({
   }
 
   return (
-    <ScrollView
+    <PageContent
+      embedded={embedded}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -1268,6 +1271,6 @@ export function ReportsPage({
           </Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </PageContent>
   );
 }

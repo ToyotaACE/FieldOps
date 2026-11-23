@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   Text,
   TextInput,
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react-native';
 
 import { AppDrawer } from './src/components/AppDrawer';
+import { RecentActivitySection } from './src/components/RecentActivitySection';
 
 import { DashboardPage } from './src/pages/DashboardPage';
 import {
@@ -453,7 +455,7 @@ export default function App() {
   */
 
   function navigate(nextPage: Page) {
-    setPage(nextPage);
+    setPage(nextPage === 'Configurações' ? 'Configurações' : 'Dashboard');
     setShowReports(false);
     setSelectedInspection(null);
     setDrawerOpen(false);
@@ -467,7 +469,6 @@ export default function App() {
 
   function openInspection(inspection: Inspection) {
     setSelectedInspection(inspection);
-    setPage('Inspeções e relatórios');
     setShowReports(false);
   }
 
@@ -793,17 +794,55 @@ export default function App() {
         }
 
         return (
-          <DashboardPage
-            colors={colors}
-            inspections={filteredInspections}
-            onOpenInspection={openInspection}
-            onNewInspection={() =>
-              Alert.alert(
-                'Nova inspeção',
-                'As inspeções deverão ser programadas pelo supervisor.',
-              )
-            }
-          />
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 36 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <DashboardPage
+              colors={colors}
+              inspections={filteredInspections}
+              embedded
+            />
+
+            <InspectionsReportsPage
+              colors={colors}
+              showReports={showReports}
+              onOpenReports={() => setShowReports(true)}
+              onBackToInspections={() => setShowReports(false)}
+              inspections={filteredInspections}
+              selected={null}
+              onOpenInspection={openInspection}
+              onBack={() => setSelectedInspection(null)}
+              onApprove={() => updateInspectionStatus('Aprovada')}
+              onReject={() => updateInspectionStatus('Reprovada')}
+              onCreateNonConformity={createNonConformity}
+              checklist={inspectionChecklist}
+              answers={inspectionAnswers}
+              loadingChecklist={loadingChecklist}
+              checklistError={checklistError}
+              onSaveAnswer={saveInspectionAnswer}
+              embedded
+            />
+
+            <RecentActivitySection
+              colors={colors}
+              inspections={filteredInspections}
+            />
+
+            <CalendarPage colors={colors} embedded />
+            <LocationsPage colors={colors} embedded />
+            <EquipmentPage
+              colors={colors}
+              onNew={openNewRecordModal}
+              embedded
+            />
+            <NonConformitiesPage
+              colors={colors}
+              nonConformities={nonConformities}
+              embedded
+            />
+          </ScrollView>
         );
 
       case 'Inspeções e relatórios':
@@ -819,12 +858,6 @@ export default function App() {
             onBack={() => setSelectedInspection(null)}
             onApprove={() => updateInspectionStatus('Aprovada')}
             onReject={() => updateInspectionStatus('Reprovada')}
-            onNewInspection={() =>
-              Alert.alert(
-                'Nova inspeção',
-                'As inspeções deverão ser programadas pelo supervisor.',
-              )
-            }
             onCreateNonConformity={createNonConformity}
             checklist={inspectionChecklist}
             answers={inspectionAnswers}
@@ -888,6 +921,7 @@ export default function App() {
             onToggleDarkMode={() =>
               setDarkMode((currentValue) => !currentValue)
             }
+            onBack={() => setPage('Dashboard')}
           />
         );
 
@@ -944,8 +978,10 @@ export default function App() {
         ]}
       >
         <TouchableOpacity
-          onPress={() => setDrawerOpen(true)}
+          onPress={() => setDrawerOpen((isOpen) => !isOpen)}
           style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel={drawerOpen ? 'Fechar menu lateral' : 'Abrir menu lateral'}
         >
           <Menu size={23} color={colors.text} />
         </TouchableOpacity>
@@ -967,7 +1003,7 @@ export default function App() {
             ]}
             numberOfLines={1}
           >
-            {page}
+            {page === 'Configurações' ? page : 'Dashboard'}
           </Text>
         </View>
 
@@ -1064,11 +1100,47 @@ export default function App() {
       <AppDrawer
         visible={drawerOpen}
         page={page}
-        colors={colors}
+        user={currentUser}
         onClose={() => setDrawerOpen(false)}
         onNavigate={navigate}
         onLogout={logout}
       />
+
+      <Modal
+        visible={selectedInspection !== null}
+        animationType="slide"
+        onRequestClose={() => setSelectedInspection(null)}
+      >
+        <SafeAreaView
+          style={[
+            styles.safeArea,
+            {
+              backgroundColor: colors.bg,
+            },
+          ]}
+        >
+          {selectedInspection && (
+            <InspectionsReportsPage
+              colors={colors}
+              showReports={false}
+              onOpenReports={() => setShowReports(true)}
+              onBackToInspections={() => setSelectedInspection(null)}
+              onCreateNonConformity={createNonConformity}
+              inspections={filteredInspections}
+              selected={selectedInspection}
+              onOpenInspection={openInspection}
+              onBack={() => setSelectedInspection(null)}
+              onApprove={() => updateInspectionStatus('Aprovada')}
+              onReject={() => updateInspectionStatus('Reprovada')}
+              checklist={inspectionChecklist}
+              answers={inspectionAnswers}
+              loadingChecklist={loadingChecklist}
+              checklistError={checklistError}
+              onSaveAnswer={saveInspectionAnswer}
+            />
+          )}
+        </SafeAreaView>
+      </Modal>
 
       {/* MODAL GENÉRICO */}
 

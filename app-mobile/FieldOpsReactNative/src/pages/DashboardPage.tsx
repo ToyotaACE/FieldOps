@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import {
   Activity,
   AlertTriangle,
@@ -9,16 +9,15 @@ import {
   Clock3,
 } from 'lucide-react-native';
 
-import { InspectionCard } from '../components/InspectionCard';
 import { StatusChart } from '../components/MiniCharts';
+import { PageContent } from '../components/PageContent';
 import { Inspection, Palette, Status } from '../types';
 import { dashboardPageStyles as styles } from './DashboardPage.styles';
 
 type DashboardPageProps = {
   colors: Palette;
   inspections: Inspection[];
-  onOpenInspection: (inspection: Inspection) => void;
-  onNewInspection: () => void;
+  embedded?: boolean;
 };
 
 function isToday(date: string): boolean {
@@ -53,7 +52,7 @@ function isToday(date: string): boolean {
 export function DashboardPage({
   colors,
   inspections,
-  onOpenInspection,
+  embedded = false,
 }: DashboardPageProps) {
   const countByStatus = (status: Status) =>
     inspections.filter((inspection) => inspection.status === status).length;
@@ -120,7 +119,7 @@ export function DashboardPage({
   ];
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <PageContent embedded={embedded} contentContainerStyle={styles.content}>
       <View style={styles.heading}>
         <View style={styles.headingText}>
           <Text style={styles.eyebrow}>VISÃO OPERACIONAL</Text>
@@ -219,24 +218,6 @@ export function DashboardPage({
         <StatusChart colors={colors} data={statusData} />
       </View>
 
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Inspeções recentes
-      </Text>
-
-      {inspections.length === 0 ? (
-        <Text style={{ color: colors.muted, marginTop: 8 }}>
-          Nenhuma inspeção encontrada.
-        </Text>
-      ) : (
-        inspections.slice(0, 5).map((inspection) => (
-          <InspectionCard
-            key={inspection.id}
-            item={inspection}
-            colors={colors}
-            onPress={() => onOpenInspection(inspection)}
-          />
-        ))
-      )}
-    </ScrollView>
+    </PageContent>
   );
 }

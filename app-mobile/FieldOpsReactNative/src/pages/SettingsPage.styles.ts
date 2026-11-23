@@ -5,6 +5,18 @@ export const settingsPageStyles = StyleSheet.create({
     padding: 14,
     paddingBottom: 40,
   },
+  backButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 8,
+  },
+  backButtonText: {
+    color: '#2563eb',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   eyebrow: {
     fontSize: 9,
     fontWeight: '900',

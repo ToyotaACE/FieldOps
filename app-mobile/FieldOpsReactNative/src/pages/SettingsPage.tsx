@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { Bell, Check, ChevronRight, Cloud, Moon, ShieldCheck, Smartphone, Sun, UserRound } from 'lucide-react-native';
+import { ArrowLeft, Bell, Check, ChevronRight, Cloud, Moon, ShieldCheck, Smartphone, Sun, UserRound } from 'lucide-react-native';
 
 import { Palette } from '../types';
 import { settingsPageStyles as styles } from './SettingsPage.styles';
@@ -9,9 +9,10 @@ type SettingsPageProps = {
   colors: Palette;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  onBack: () => void;
 };
 
-export function SettingsPage({ colors, darkMode, onToggleDarkMode }: SettingsPageProps) {
+export function SettingsPage({ colors, darkMode, onToggleDarkMode, onBack }: SettingsPageProps) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [offlineSyncEnabled, setOfflineSyncEnabled] = useState(true);
 
@@ -29,6 +30,10 @@ export function SettingsPage({ colors, darkMode, onToggleDarkMode }: SettingsPag
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
+      <TouchableOpacity onPress={onBack} style={styles.backButton}>
+        <ArrowLeft size={16} color="#2563eb" />
+        <Text style={styles.backButtonText}>Voltar ao dashboard</Text>
+      </TouchableOpacity>
       <Text style={styles.eyebrow}>PREFERÊNCIAS DO USUÁRIO</Text>
       <Text style={[styles.title, { color: colors.text }]}>Configurações</Text>
       <Text style={[styles.subtitle, { color: colors.muted }]}>Ajuste seu ambiente de trabalho e as preferências do inspetor.</Text>

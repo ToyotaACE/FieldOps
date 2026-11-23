@@ -2,7 +2,6 @@
 import React, { useMemo, useState } from 'react';
 
 import {
-  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -18,11 +17,13 @@ import {
 } from 'lucide-react-native';
 
 import { Palette } from '../types';
+import { PageContent } from '../components/PageContent';
 
 import { calendarPageStyles as styles } from './CalendarPage.styles';
 
 type CalendarPageProps = {
   colors: Palette;
+  embedded?: boolean;
 };
 
 type InspectionStatus =
@@ -136,6 +137,7 @@ function createInitialInspections(): Inspection[] {
 
 export function CalendarPage({
   colors,
+  embedded = false,
 }: CalendarPageProps) {
   const today = new Date();
 
@@ -285,7 +287,8 @@ export function CalendarPage({
   }
 
   return (
-    <ScrollView
+    <PageContent
+      embedded={embedded}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -814,7 +817,7 @@ export function CalendarPage({
           ))}
         </View>
       )}
-    </ScrollView>
+    </PageContent>
   );
 }
 

@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 
 import {
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -17,11 +16,13 @@ import {
 } from 'lucide-react-native';
 
 import { Palette } from '../types';
+import { PageContent } from '../components/PageContent';
 
 import { locationsPageStyles as styles } from './LocationsPage.styles';
 
 type LocationsPageProps = {
   colors: Palette;
+  embedded?: boolean;
 };
 
 type EquipmentLocation = {
@@ -66,6 +67,7 @@ const EQUIPMENT_LOCATIONS: EquipmentLocation[] = [
 
 export function LocationsPage({
   colors,
+  embedded = false,
 }: LocationsPageProps) {
   const [searchText, setSearchText] = useState('');
 
@@ -100,7 +102,8 @@ export function LocationsPage({
   }, [searchText]);
 
   return (
-    <ScrollView
+    <PageContent
+      embedded={embedded}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
@@ -384,6 +387,6 @@ export function LocationsPage({
           ))
         )}
       </View>
-    </ScrollView>
+    </PageContent>
   );
 }

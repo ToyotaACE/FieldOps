@@ -24,22 +24,23 @@ export function InspectionsReportsPage({
   showReports,
   onBackToInspections,
   onCreateNonConformity,
+  embedded = false,
   ...inspectionProps
 }: InspectionsReportsPageProps) {
-  return (
-    <View style={{ flex: 1 }}>
-      {showReports ? (
-        <ReportsPage
-          colors={colors}
-          onBack={onBackToInspections}
-          onCreateNonConformity={onCreateNonConformity}
-        />
-      ) : (
-        <InspectionsPage
-          {...inspectionProps}
-          colors={colors}
-        />
-      )}
-    </View>
+  const content = showReports ? (
+    <ReportsPage
+      colors={colors}
+      embedded={embedded}
+      onBack={onBackToInspections}
+      onCreateNonConformity={onCreateNonConformity}
+    />
+  ) : (
+    <InspectionsPage
+      {...inspectionProps}
+      colors={colors}
+      embedded={embedded}
+    />
   );
+
+  return embedded ? content : <View style={{ flex: 1 }}>{content}</View>;
 }
