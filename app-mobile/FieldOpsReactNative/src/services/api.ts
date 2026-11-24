@@ -1,3 +1,5 @@
+import { File as ExpoFile } from 'expo-file-system';
+import { fetch as expoFetch } from 'expo/fetch';
 import { Platform } from 'react-native';
 
 /*
@@ -6,7 +8,7 @@ import { Platform } from 'react-native';
 |--------------------------------------------------------------------------
 | Defina EXPO_PUBLIC_API_URL no arquivo .env (sem /api/v1 no final).
 | Exemplos:
-|   - Celular físico:      http://192.168.0.10:8080   (IP do computador)
+|   - Celular físico:      http://192.168.0.10:8080
 |   - Emulador Android:    http://10.0.2.2:8080
 |   - iOS Simulator / Web: http://localhost:8080
 */
@@ -28,10 +30,6 @@ const API_URL = `${API_BASE_URL}/api/v1`;
 |--------------------------------------------------------------------------
 */
 
-/**
- * Falha de rede (sem conexão, timeout ou servidor inacessível).
- * Diferente de uma resposta de erro devolvida pelo servidor.
- */
 export class NetworkError extends Error {
   constructor(
     message = 'Não foi possível conectar ao servidor. Verifique sua conexão e se o backend está ativo.',
@@ -59,9 +57,26 @@ async function fetchWithTimeout(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } catch {
-    throw new NetworkError();
+    return await expoFetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    console.error('[FIELDOPS] Falha na requisição:', {
+      url,
+      method: options.method || 'GET',
+      error,
+      errorName: error instanceof Error ? error.name : 'Desconhecido',
+      errorMessage:
+        error instanceof Error ? error.message : String(error),
+      aborted: controller.signal.aborted,
+    });
+
+    throw new NetworkError(
+      error instanceof Error
+        ? `Falha na comunicação: ${error.name} - ${error.message}`
+        : 'Falha desconhecida na comunicação com o servidor.',
+    );
   } finally {
     clearTimeout(timer);
   }
@@ -136,16 +151,6 @@ export type TemplateSection = {
   createdAt?: string;
 };
 
-/**
- * Contrato único de respostas (igual no Backend, Web e Mobile):
- *
- * TEXT_SHORT / TEXT_LONG  texto
- * NUMBER                  número decimal com ponto ("12.5")
- * BOOLEAN                 "true" | "false"
- * CONFORMITY              "CONFORM" | "NONCONFORM" | "NOT_APPLICABLE"
- * SINGLE_CHOICE           uma das opções cadastradas no item
- * DATE                    "AAAA-MM-DD"
- */
 export type ResponseType =
   | 'TEXT_SHORT'
   | 'TEXT_LONG'
@@ -194,7 +199,11 @@ export type InspectionEvidence = {
   uploadedAt: string;
 };
 
-export type NonConformitySeverityApi = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type NonConformitySeverityApi =
+  | 'LOW'
+  | 'MEDIUM'
+  | 'HIGH'
+  | 'CRITICAL';
 
 export type ApiNonConformity = {
   id: number;
@@ -331,7 +340,6 @@ export type UpdateProfileRequest = {
   phone: string;
 };
 
-/** Operação da fila de sincronização (contrato de POST /sync/operations). */
 export type SyncOperationRequest = {
   operationId: string;
   type: 'START' | 'COMPLETE' | 'REOPEN' | 'ANSWER' | 'NONCONFORMITY';
@@ -363,9 +371,6 @@ export type SyncOperationResult = {
 |--------------------------------------------------------------------------
 */
 
-/**
- * Lê a mensagem de erro devolvida pela API (quando existir).
- */
 async function readErrorMessage(
   response: Response,
   fallback: string,
@@ -395,9 +400,6 @@ async function readErrorMessage(
   }
 }
 
-/**
- * Executa requisições autenticadas na API.
- */
 async function authenticatedFetch(
   path: string,
   token: string,
@@ -433,9 +435,6 @@ async function authenticatedFetch(
   return response;
 }
 
-/**
- * GET autenticado que devolve JSON tipado.
- */
 async function getJson<T>(
   path: string,
   token: string,
@@ -455,9 +454,6 @@ async function getJson<T>(
   return response.json();
 }
 
-/**
- * Requisição autenticada com corpo JSON.
- */
 async function sendJson<T>(
   path: string,
   token: string,
@@ -490,9 +486,6 @@ async function sendJson<T>(
 |--------------------------------------------------------------------------
 */
 
-/**
- * Busca o perfil do usuário e valida o token no backend.
- */
 export async function getCurrentUser(
   token: string,
 ): Promise<AuthUser> {
@@ -513,9 +506,6 @@ export async function getCurrentUser(
   return user;
 }
 
-/**
- * Realiza o login e carrega o perfil autenticado.
- */
 export async function loginRequest(
   email: string,
   password: string,
@@ -564,9 +554,6 @@ export async function loginRequest(
   };
 }
 
-/**
- * Renova o token (o token atual precisa estar válido).
- */
 export async function refreshToken(token: string): Promise<string> {
   const data = await sendJson<LoginResponse>(
     '/auth/refresh',
@@ -583,9 +570,6 @@ export async function refreshToken(token: string): Promise<string> {
   return data.accessToken;
 }
 
-/**
- * Atualiza nome, CPF e telefone do usuário autenticado.
- */
 export async function updateMyProfile(
   token: string,
   data: UpdateProfileRequest,
@@ -599,9 +583,6 @@ export async function updateMyProfile(
   );
 }
 
-/**
- * Altera a senha do usuário autenticado.
- */
 export async function changeMyPassword(
   token: string,
   currentPassword: string,
@@ -623,9 +604,6 @@ export async function changeMyPassword(
 |--------------------------------------------------------------------------
 */
 
-/**
- * Busca as inspeções do usuário autenticado (técnico: somente as dele).
- */
 export async function getInspections(
   token: string,
 ): Promise<BackendInspection[]> {
@@ -644,10 +622,6 @@ export async function getInspections(
   return inspections;
 }
 
-/**
- * Inspeção completa: checklist da versão exata do modelo, respostas,
- * evidências, não conformidades e histórico.
- */
 export function getInspectionPackage(
   token: string,
   inspectionId: number,
@@ -659,7 +633,6 @@ export function getInspectionPackage(
   );
 }
 
-/** Supervisor: abre a revisão. */
 export function startInspectionReview(
   token: string,
   inspectionId: number,
@@ -673,7 +646,6 @@ export function startInspectionReview(
   );
 }
 
-/** Supervisor: aprova (comentário opcional). */
 export function approveInspection(
   token: string,
   inspectionId: number,
@@ -688,7 +660,6 @@ export function approveInspection(
   );
 }
 
-/** Supervisor: reprova (motivo obrigatório). */
 export function rejectInspection(
   token: string,
   inspectionId: number,
@@ -709,10 +680,6 @@ export function rejectInspection(
 |--------------------------------------------------------------------------
 */
 
-/**
- * Envia um lote de operações. Cada operação é idempotente pelo
- * operationId; o resultado vem na mesma ordem do envio.
- */
 export async function sendSyncOperations(
   token: string,
   operations: SyncOperationRequest[],
@@ -746,16 +713,17 @@ async function uploadEvidence(
   file: UploadFile,
   operationId?: string,
 ): Promise<InspectionEvidence> {
-  const formData = new FormData();
+  const localFile = new ExpoFile(file.uri);
 
-  formData.append(
-    'file',
-    {
-      uri: file.uri,
-      name: file.name,
-      type: file.type,
-    } as unknown as Blob,
-  );
+  if (!localFile.exists) {
+    throw new Error(`Arquivo não encontrado: ${file.name}`);
+  }
+
+  const formData = new FormData();
+  formData.append('file', localFile);
+
+
+  formData.append('file', localFile, file.name);
 
   const query = operationId
     ? `?operationId=${encodeURIComponent(operationId)}`
@@ -788,7 +756,7 @@ async function uploadEvidence(
   return response.json();
 }
 
-/** Envia uma foto vinculada a uma resposta (idempotente por operationId). */
+
 export function uploadAnswerEvidence(
   token: string,
   answerId: number,
@@ -803,7 +771,6 @@ export function uploadAnswerEvidence(
   );
 }
 
-/** Envia uma foto vinculada a uma não conformidade. */
 export function uploadNonConformityEvidence(
   token: string,
   nonConformityId: number,
@@ -818,10 +785,6 @@ export function uploadNonConformityEvidence(
   );
 }
 
-/**
- * Baixa a imagem da evidência (com autenticação) e a devolve como
- * data URI, que pode ser usada diretamente em <Image source={{ uri }} />.
- */
 export async function getEvidenceImageUri(
   token: string,
   evidence: Pick<InspectionEvidence, 'id' | 'contentType'>,
@@ -847,7 +810,6 @@ export async function getEvidenceImageUri(
     reader.onloadend = () => {
       const result = String(reader.result ?? '');
 
-      // Garante o tipo da imagem caso o servidor não envie Content-Type.
       resolve(
         result.startsWith('data:application/octet-stream')
           ? result.replace(
@@ -865,9 +827,6 @@ export async function getEvidenceImageUri(
   });
 }
 
-/**
- * Busca as evidências vinculadas a uma resposta.
- */
 export function getAnswerEvidences(
   token: string,
   answerId: number,
@@ -881,7 +840,7 @@ export function getAnswerEvidences(
 
 /*
 |--------------------------------------------------------------------------
-| CADASTROS (CLIENTES, LOCAIS, EQUIPAMENTOS, MODELOS)
+| CADASTROS
 |--------------------------------------------------------------------------
 */
 

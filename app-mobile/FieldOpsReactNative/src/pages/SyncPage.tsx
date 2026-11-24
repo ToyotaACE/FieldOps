@@ -225,10 +225,22 @@ export function SyncPage({ colors, user }: { colors: Palette; user: AuthUser }) 
         ))}
 
         {pendingEvidences.map((evidence) => (
-          <Text key={evidence.localId} style={{ color: colors.muted, fontSize: 12, marginTop: 8 }}>
-            • Foto · {formatInspectionCode(evidence.inspectionId)}
-            {evidence.attempts > 0 ? ` (tentativas: ${evidence.attempts})` : ' (aguardando a resposta ser enviada)'}
-          </Text>
+          <View key={evidence.localId} style={{ marginTop: 10 }}>
+            <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>
+              Foto · {formatInspectionCode(evidence.inspectionId)}
+              {` (tentativas: ${evidence.attempts})`}
+            </Text>
+
+            <Text style={{ color: colors.muted, fontSize: 11, marginTop: 3 }}>
+              Estado: {evidence.state}
+            </Text>
+
+            {evidence.lastError ? (
+              <Text style={{ color: '#dc2626', fontSize: 11, marginTop: 3 }}>
+                Motivo da última tentativa: {evidence.lastError}
+              </Text>
+            ) : null}
+          </View>
         ))}
       </View>
     </ScrollView>

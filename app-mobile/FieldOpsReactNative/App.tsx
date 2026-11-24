@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -182,26 +183,72 @@ export default function App() {
     void endSession();
   }, [endSession]);
 
+  
+  
   async function logout() {
-    const pending = await repo.getPendingSummary(userId);
-    const total = pending.operations + pending.evidences + pending.errors;
+    try {
+      const pending = await repo.getPendingSummary(userId);
+      const total =
+        pending.operations + pending.evidences + pending.errors;
 
-    const doLogout = () => void endSession();
+      if (total > 0) {
+        const message =
+          `Existem ${total} informação(ões) ainda não enviadas. ` +
+          'Elas ficarão guardadas no aparelho e serão enviadas quando você entrar novamente.';
 
-    if (total > 0) {
-      Alert.alert(
-        'Informações não sincronizadas',
-        `Existem ${total} informação(ões) ainda não enviadas. Elas ficarão guardadas no aparelho e serão enviadas quando você entrar novamente.`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Sair mesmo assim', style: 'destructive', onPress: doLogout },
-        ],
-      );
-      return;
+        // Confirmação para navegador (Expo Web)
+        if (Platform.OS === 'web') {
+          const confirmed = window.confirm(
+            `${message}\n\nDeseja sair mesmo assim?`
+          );
+
+          if (confirmed) {
+            await endSession();
+          }
+
+          return;
+        }
+
+        // Confirmação para celular
+        Alert.alert(
+          'Informações não sincronizadas',
+          message,
+          [
+            {
+              text: 'Cancelar',
+              style: 'cancel',
+            },
+            {
+              text: 'Sair mesmo assim',
+              style: 'destructive',
+              onPress: () => {
+                void endSession();
+              },
+            },
+          ],
+        );
+
+        return;
+      }
+
+      // Se não houver dados pendentes, encerra diretamente
+      await endSession();
+
+    } catch (error) {
+      console.error('Erro ao sair:', error);
+
+      if (Platform.OS === 'web') {
+        window.alert('Não foi possível encerrar a sessão.');
+      } else {
+        Alert.alert(
+          'Erro',
+          'Não foi possível encerrar a sessão.'
+        );
+      }
     }
-
-    doLogout();
   }
+
+
 
   /* ------------------------- restauração da sessão ------------------------- */
 
@@ -502,7 +549,7 @@ export default function App() {
   if (checkingSession) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }]}>
-        <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.panel} />
+        <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
         <ActivityIndicator size="large" color="#2563eb" />
         <Text style={{ color: colors.text, marginTop: 12 }}>Verificando sessão...</Text>
       </SafeAreaView>
@@ -512,7 +559,7 @@ export default function App() {
   if (!session) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
-        <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.panel} />
+        <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
         <LoginPage colors={colors} onLogin={handleLogin} />
       </SafeAreaView>
     );
@@ -663,7 +710,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
-      <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.panel} />
+      <StatusBar barStyle={darkMode ? 'light-content' : 'dark-content'} />
 
       <View style={[styles.header, { backgroundColor: colors.panel, borderBottomColor: colors.border }]}>
         <TouchableOpacity

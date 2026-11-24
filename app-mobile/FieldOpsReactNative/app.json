@@ -40,7 +40,8 @@
           "photosPermission": "O FieldOps usa a galeria para anexar fotos como evidência da inspeção.",
           "cameraPermission": "O FieldOps usa a câmera para fotografar evidências da inspeção."
         }
-      ]
+      ],
+      "expo-status-bar"
     ]
   }
 }
