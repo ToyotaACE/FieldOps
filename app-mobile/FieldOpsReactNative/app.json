@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "FieldOps",
+    "slug": "fieldops-react-native",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.fieldops.mobile",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.fieldops.mobile"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O FieldOps usa a câmera para ler o QR Code do equipamento e fotografar evidências da inspeção."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O FieldOps registra a localização somente no início e na conclusão da inspeção."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O FieldOps usa a galeria para anexar fotos como evidência da inspeção.",
+          "cameraPermission": "O FieldOps usa a câmera para fotografar evidências da inspeção."
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,402 @@
+openapi: 3.0.3
+info:
+  title: FieldOps API
+  version: "1.0"
+  description: |
+    API única usada pelo Web (supervisor/administrador) e pelo Mobile (técnico).
+
+    Erros seguem sempre o formato `{ timestamp, status, error, message }`:
+    400 regra de negócio ou dado inválido, 401 sem sessão, 403 sem permissão,
+    404 não encontrado, 409 transição de estado inválida ou conflito,
+    413 arquivo maior que 10 MB.
+
+    Contrato de respostas do checklist (valor `value`):
+    TEXT_SHORT (até 255) | TEXT_LONG (até 5000) | NUMBER ("12.5") |
+    BOOLEAN ("true"/"false") | CONFORMITY ("CONFORM"/"NONCONFORM"/"NOT_APPLICABLE") |
+    SINGLE_CHOICE (uma das `options` do item) | DATE ("AAAA-MM-DD").
+    Fotos são evidências vinculadas à resposta.
+servers:
+  - url: http://localhost:8080/api/v1
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      security: []
+      summary: Login (somente usuários ativos)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        "200": { description: Token, content: { application/json: { schema: { $ref: '#/components/schemas/LoginResponse' } } } }
+        "400": { $ref: '#/components/responses/Error' }
+  /auth/refresh:
+    post:
+      summary: Renova o token do usuário autenticado
+      responses:
+        "200": { description: Novo token, content: { application/json: { schema: { $ref: '#/components/schemas/LoginResponse' } } } }
+  /auth/me:
+    get:
+      summary: Perfil do usuário autenticado
+      responses:
+        "200": { description: Usuário }
+
+  /inspections:
+    get:
+      summary: Inspeções (técnico recebe somente as atribuídas a ele)
+      responses:
+        "200": { description: Lista, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Inspection' } } } } }
+    post:
+      summary: Cria e atribui uma inspeção (ADMIN, SUPERVISOR)
+      description: Exige versão publicada, local ativo do cliente, equipamento ativo do local e usuário com perfil TECHNICIAN ativo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InspectionRequest' }
+      responses:
+        "201": { description: Criada, content: { application/json: { schema: { $ref: '#/components/schemas/Inspection' } } } }
+        "400": { $ref: '#/components/responses/Error' }
+
+  /inspections/{id}/package:
+    get:
+      summary: Inspeção completa (checklist da versão exata, respostas, evidências, não conformidades, histórico)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        "200": { description: Pacote, content: { application/json: { schema: { $ref: '#/components/schemas/InspectionPackage' } } } }
+        "403": { $ref: '#/components/responses/Error' }
+
+  /inspections/{id}/start:
+    post:
+      summary: Técnico responsável inicia (SCHEDULED → IN_PROGRESS). Idempotente.
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Execution' }
+      responses:
+        "200": { description: Inspeção }
+        "409": { $ref: '#/components/responses/Error' }
+  /inspections/{id}/complete:
+    post:
+      summary: Técnico responsável conclui (IN_PROGRESS → COMPLETED). Valida obrigatórios e evidências. Idempotente.
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Execution' }
+      responses:
+        "200": { description: Inspeção }
+        "400": { $ref: '#/components/responses/Error' }
+  /inspections/{id}/reopen:
+    post:
+      summary: Técnico reabre uma inspeção reprovada para correção (REJECTED → IN_PROGRESS)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        "200": { description: Inspeção }
+  /inspections/{id}/review:
+    post:
+      summary: Supervisor inicia a revisão (COMPLETED → UNDER_REVIEW)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        "200": { description: Inspeção }
+  /inspections/{id}/approve:
+    post:
+      summary: Supervisor aprova (UNDER_REVIEW → APPROVED). Comentário opcional.
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Reason' }
+      responses:
+        "200": { description: Inspeção }
+  /inspections/{id}/reject:
+    post:
+      summary: Supervisor reprova (UNDER_REVIEW → REJECTED). Motivo obrigatório.
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Reason' }
+      responses:
+        "200": { description: Inspeção }
+        "400": { $ref: '#/components/responses/Error' }
+  /inspections/{id}/cancel:
+    post:
+      summary: Cancela com justificativa (ADMIN, SUPERVISOR). Inspeção aprovada não pode ser cancelada.
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Reason' }
+      responses:
+        "200": { description: Inspeção }
+        "409": { $ref: '#/components/responses/Error' }
+
+  /inspections/{id}/answers:
+    get:
+      summary: Respostas da inspeção
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        "200": { description: Lista }
+    post:
+      summary: Cria a resposta de um item (técnico responsável, inspeção em andamento)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnswerRequest' }
+      responses:
+        "201": { description: Resposta }
+        "400": { $ref: '#/components/responses/Error' }
+        "409": { $ref: '#/components/responses/Error' }
+
+  /inspections/{id}/nonconformities:
+    get:
+      summary: Não conformidades da inspeção
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        "200": { description: Lista }
+    post:
+      summary: Registra não conformidade (técnico, inspeção em andamento). Idempotente por clientOperationId.
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NonConformityRequest' }
+      responses:
+        "201": { description: Criada }
+
+  /inspection-evidences/answers/{answerId}:
+    post:
+      summary: Envia foto de uma resposta (JPEG, PNG ou WEBP até 10 MB). Idempotente por operationId.
+      parameters:
+        - { name: answerId, in: path, required: true, schema: { type: integer } }
+        - { name: operationId, in: query, required: false, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { type: object, properties: { file: { type: string, format: binary } } }
+      responses:
+        "201": { description: Evidência }
+        "413": { $ref: '#/components/responses/Error' }
+  /inspection-evidences/nonconformities/{nonConformityId}:
+    post:
+      summary: Envia foto de uma não conformidade. Idempotente por operationId.
+      parameters:
+        - { name: nonConformityId, in: path, required: true, schema: { type: integer } }
+        - { name: operationId, in: query, required: false, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { type: object, properties: { file: { type: string, format: binary } } }
+      responses:
+        "201": { description: Evidência }
+  /inspection-evidences/{evidenceId}/file:
+    get:
+      summary: Conteúdo da imagem (com autorização)
+      parameters: [ { name: evidenceId, in: path, required: true, schema: { type: integer } } ]
+      responses:
+        "200": { description: Imagem }
+
+  /sync/operations:
+    post:
+      summary: Fila offline do aplicativo (técnico)
+      description: |
+        Operações aplicadas na ordem enviada, cada uma em sua própria transação.
+        O operationId (UUID gerado no aparelho) é único: reenviar devolve DUPLICATE sem repetir o efeito.
+        Uma operação REJECTED não é registrada e pode ser reenviada após corrigir a causa.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyncBatch' }
+      responses:
+        "200": { description: Resultado por operação, content: { application/json: { schema: { $ref: '#/components/schemas/SyncResult' } } } }
+
+  /users/technicians:
+    get:
+      summary: Técnicos ativos para atribuição (ADMIN, SUPERVISOR)
+      responses:
+        "200": { description: Lista }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: integer } }
+  responses:
+    Error:
+      description: Erro
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              timestamp: { type: string }
+              status: { type: integer }
+              error: { type: string }
+              message: { type: string }
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties: { email: { type: string }, password: { type: string } }
+    LoginResponse:
+      type: object
+      properties: { accessToken: { type: string }, tokenType: { type: string } }
+    InspectionStatus:
+      type: string
+      enum: [SCHEDULED, IN_PROGRESS, COMPLETED, UNDER_REVIEW, APPROVED, REJECTED, CANCELLED]
+    InspectionRequest:
+      type: object
+      required: [title, templateVersionId, clientId, siteId, equipmentId, technicianId, scheduledDate, scheduledTime, priority]
+      properties:
+        title: { type: string, maxLength: 150 }
+        templateVersionId: { type: integer }
+        clientId: { type: integer }
+        siteId: { type: integer }
+        equipmentId: { type: integer }
+        technicianId: { type: integer }
+        scheduledDate: { type: string, format: date }
+        scheduledTime: { type: string, example: "09:00:00" }
+        priority: { type: string, enum: [LOW, NORMAL, HIGH, CRITICAL] }
+        instructions: { type: string, maxLength: 2000 }
+    Inspection:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        instructions: { type: string, nullable: true }
+        templateVersionId: { type: integer }
+        clientId: { type: integer }
+        clientName: { type: string }
+        siteId: { type: integer }
+        siteName: { type: string }
+        equipmentId: { type: integer }
+        equipmentName: { type: string }
+        equipmentQrCode: { type: string }
+        technicianId: { type: integer }
+        technicianName: { type: string }
+        scheduledDate: { type: string, format: date }
+        scheduledTime: { type: string }
+        priority: { type: string }
+        status: { $ref: '#/components/schemas/InspectionStatus' }
+        startedAt: { type: string, nullable: true, description: Recebimento no servidor }
+        startedAtDevice: { type: string, nullable: true, description: Horário do aparelho }
+        completedAt: { type: string, nullable: true }
+        completedAtDevice: { type: string, nullable: true }
+        startLatitude: { type: number, nullable: true }
+        startLongitude: { type: number, nullable: true }
+        startAccuracy: { type: number, nullable: true }
+        endLatitude: { type: number, nullable: true }
+        endLongitude: { type: number, nullable: true }
+        endAccuracy: { type: number, nullable: true }
+        cancelReason: { type: string, nullable: true }
+        cancelledByName: { type: string, nullable: true }
+        reviewedByName: { type: string, nullable: true }
+        reviewedAt: { type: string, nullable: true }
+        reviewComment: { type: string, nullable: true, description: Motivo da reprovação ou comentário da aprovação }
+    Execution:
+      type: object
+      properties:
+        deviceTime: { type: string, format: date-time }
+        latitude: { type: number }
+        longitude: { type: number }
+        accuracy: { type: number }
+        locationTime: { type: string, format: date-time }
+    Reason:
+      type: object
+      properties: { reason: { type: string, maxLength: 2000 } }
+    AnswerRequest:
+      type: object
+      required: [templateItemId, value]
+      properties:
+        templateItemId: { type: integer }
+        value: { type: string }
+        observation: { type: string }
+    NonConformityRequest:
+      type: object
+      required: [severity, description]
+      properties:
+        templateItemId: { type: integer, nullable: true }
+        severity: { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        type: { type: string }
+        description: { type: string }
+        probableCause: { type: string }
+        recommendedAction: { type: string }
+        technicalNotes: { type: string }
+        clientOperationId: { type: string }
+    InspectionPackage:
+      type: object
+      properties:
+        inspection: { $ref: '#/components/schemas/Inspection' }
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              title: { type: string }
+              displayOrder: { type: integer }
+              items:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    label: { type: string }
+                    responseType: { type: string, enum: [TEXT_SHORT, TEXT_LONG, NUMBER, BOOLEAN, CONFORMITY, SINGLE_CHOICE, DATE] }
+                    required: { type: boolean }
+                    requiresEvidence: { type: boolean }
+                    requiresObservationOnNonconformity: { type: boolean }
+                    criticalOnNonconformity: { type: boolean }
+                    displayOrder: { type: integer }
+                    options: { type: array, items: { type: string } }
+        answers: { type: array, items: { type: object } }
+        evidences: { type: array, items: { type: object } }
+        nonConformities: { type: array, items: { type: object } }
+        history: { type: array, items: { type: object } }
+    SyncOperation:
+      type: object
+      required: [operationId, type, inspectionId]
+      properties:
+        operationId: { type: string, maxLength: 64 }
+        type: { type: string, enum: [START, COMPLETE, REOPEN, ANSWER, NONCONFORMITY] }
+        inspectionId: { type: integer }
+        deviceTime: { type: string, format: date-time }
+        latitude: { type: number }
+        longitude: { type: number }
+        accuracy: { type: number }
+        locationTime: { type: string, format: date-time }
+        templateItemId: { type: integer }
+        value: { type: string }
+        observation: { type: string }
+        nonConformity: { $ref: '#/components/schemas/NonConformityRequest' }
+    SyncBatch:
+      type: object
+      required: [operations]
+      properties:
+        operations: { type: array, maxItems: 200, items: { $ref: '#/components/schemas/SyncOperation' } }
+    SyncResult:
+      type: object
+      properties:
+        serverTime: { type: string, format: date-time }
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              operationId: { type: string }
+              status: { type: string, enum: [APPLIED, DUPLICATE, REJECTED] }
+              entityId: { type: integer, nullable: true }
+              message: { type: string, nullable: true }

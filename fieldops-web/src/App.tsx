@@ -1,0 +1,1753 @@
+import { useEffect, useMemo, useState } from 'react'
+import {
+  Activity, AlertTriangle, BarChart3, Bell, CalendarDays, CheckCircle2,
+  ChevronDown, ClipboardCheck, ClipboardList, Clock3, Download, FileBarChart,
+  Gauge, HardHat, LayoutDashboard, LogOut, Menu, Moon, PackageCheck, FileText,
+  Plus, QrCode, Search, Settings, ShieldCheck, Sun, Users, Wrench, X,
+  Building2, CalendarCheck, Filter, MapPin, MoreHorizontal, Pencil, Save,
+  SlidersHorizontal, Trash2, Mail, LockKeyhole, UserRound, ArrowRight, Eye, EyeOff
+} from 'lucide-react'
+import {
+  Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer,
+  Tooltip, XAxis, YAxis
+} from 'recharts'
+
+import type { Inspection, InspectionDraft, Resource, Status } from './types'
+import { downloadCsv } from './utils/downloadCsv'
+import { AuthScreen as AuthPage } from './pages/auth/AuthScreen'
+import { ClientsPage } from './pages/clients/ClientsPage'
+import { LocationsPage } from './pages/locations/LocationsPage'
+import { EquipmentPage } from './pages/equipment/EquipmentPage'
+import { CalendarPage as RealCalendarPage } from './pages/calendar/CalendarPage'
+import { InspectionTemplateBuilderPage } from './pages/templates/InspectionTemplateBuilderPage'
+import { NonconformitiesPage } from './pages/nonconformities/NonconformitiesPage'
+import { AuditPage as RealAuditPage } from './pages/audit/AuditPage'
+import { SettingsPage as RealSettingsPage } from './pages/settings/SettingsPage'
+import { UsersPermissionsPage } from './pages/users/UsersPermissionsPage'
+import { InspectionManagementPage } from './pages/inspections/InspectionManagementPage'
+
+type ApiRecord = Record<string, unknown>
+type CalendarRecord = {
+  id: string
+  title: string
+  scheduledDate?: string
+  status: string
+  clientName: string
+  siteName: string
+  technicianName: string
+  equipmentName: string
+}
+
+type AuthenticatedUser = {
+  id: number
+  name: string
+  email: string
+  role: 'ADMIN' | 'SUPERVISOR' | 'TECHNICIAN' | string
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+
+function readToken() {
+  return localStorage.getItem('fieldops_token') || sessionStorage.getItem('fieldops_token')
+}
+
+async function apiGet<T>(path: string): Promise<T> {
+  const token = readToken()
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+  })
+  if (!response.ok) throw new Error(`Falha ao consultar ${path} (${response.status})`)
+  return response.json() as Promise<T>
+}
+
+function recordName(record: ApiRecord | undefined, fallback: string) {
+  if (!record) return fallback
+  const candidates = ['name', 'title', 'fullName', 'full_name', 'displayName', 'username', 'companyName', 'legalName']
+  for (const key of candidates) {
+    const value = record[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  const first = record.firstName ?? record.first_name
+  const last = record.lastName ?? record.last_name
+  if (typeof first === 'string' || typeof last === 'string') return `${first || ''} ${last || ''}`.trim() || fallback
+  return fallback
+}
+
+function idOf(record: ApiRecord) {
+  return String(record.id ?? record.clientId ?? record.siteId ?? record.equipmentId ?? record.userId ?? '')
+}
+
+function displayDate(date?: string, time?: string) {
+  if (!date) return '—'
+  const [year, month, day] = date.slice(0, 10).split('-').map(Number)
+  if (!year || !month || !day) return date
+  const dateText = new Date(year, month - 1, day).toLocaleDateString('pt-BR')
+  const timeText = time ? ` ${time.slice(0, 5)}` : ''
+  return `${dateText}${timeText}`
+}
+
+function normalizeStatus(status: unknown): Status {
+  const value = String(status ?? '').toUpperCase()
+  if (value === 'IN_PROGRESS' || value === 'EM ANDAMENTO') return 'Em andamento'
+  if (value === 'UNDER_REVIEW' || value === 'COMPLETED' || value === 'AGUARDANDO REVISÃO') return 'Aguardando revisão'
+  if (value === 'APPROVED' || value === 'APROVADA') return 'Aprovada'
+  if (value === 'REJECTED' || value === 'REPROVADA') return 'Reprovada'
+  return 'Agendada'
+}
+
+function normalizePriority(priority: unknown): Inspection['priority'] {
+  const value = String(priority ?? 'NORMAL').toUpperCase()
+  if (value === 'LOW' || value === 'BAIXA') return 'Baixa'
+  if (value === 'HIGH' || value === 'ALTA') return 'Alta'
+  if (value === 'CRITICAL' || value === 'CRITICA' || value === 'CRÍTICA') return 'Crítica'
+  return 'Normal'
+}
+
+const menu = [
+  ['Dashboard', LayoutDashboard], ['Inspeções', ClipboardCheck], ['Calendário', CalendarDays],
+  ['Modelos de inspeção', ClipboardList], ['Clientes', Users], ['Locais', PackageCheck],
+  ['Equipamentos', Wrench], ['Não conformidades', AlertTriangle],
+  ['Auditoria', ShieldCheck], ['Usuários', Users], ['Configurações', Settings]
+] as const
+
+function App() {
+  const [authenticated, setAuthenticated] = useState(() => {
+    return Boolean(
+      localStorage.getItem('fieldops_token') ||
+      sessionStorage.getItem('fieldops_token')
+    )
+  })
+
+  const [page, setPage] = useState('Dashboard')
+  const [dark, setDark] = useState(false)
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null)
+  const [userLoading, setUserLoading] = useState(false)
+  const [userError, setUserError] = useState('')
+  const [collapsed, setCollapsed] = useState(false)
+  const [inspections, setInspections] = useState<Inspection[]>([])
+  const [calendarInspections, setCalendarInspections] = useState<CalendarRecord[]>([])
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [dashboardError, setDashboardError] = useState('')
+  
+  useEffect(() => {
+    if (!authenticated) {
+      setCurrentUser(null)
+      setUserError('')
+      return
+    }
+
+    let active = true
+
+    async function loadCurrentUser() {
+      setUserLoading(true)
+      setUserError('')
+
+      try {
+        const user = await apiGet<AuthenticatedUser>('/api/v1/auth/me')
+
+        if (active) {
+          setCurrentUser(user)
+        }
+      } catch (error) {
+        if (active) {
+          setCurrentUser(null)
+          setUserError(
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível carregar o perfil do usuário.'
+          )
+        }
+      } finally {
+        if (active) {
+          setUserLoading(false)
+        }
+      }
+    }
+
+    void loadCurrentUser()
+
+    return () => {
+      active = false
+    }
+  }, [authenticated])
+
+  const userName = currentUser?.name || (userLoading ? 'Carregando...' : 'Usuário')
+  const userRole = currentUser?.role || ''
+  const userEmail = currentUser?.email || ''
+
+  const userInitials = userName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join('')
+
+  useEffect(() => {
+    if (!authenticated) return
+    let active = true
+    async function loadOperationalData() {
+      setDashboardLoading(true)
+      setDashboardError('')
+      try {
+        const [rawInspections, rawClients, rawSites, rawEquipment, rawUsers] = await Promise.all([
+          apiGet<ApiRecord[]>('/api/v1/inspections'),
+          apiGet<ApiRecord[]>('/api/v1/clients').catch(() => []),
+          apiGet<ApiRecord[]>('/api/v1/sites').catch(() => []),
+          apiGet<ApiRecord[]>('/api/v1/equipments').catch(() => []),
+          apiGet<ApiRecord[]>('/api/v1/users/technicians').catch(() => [])
+        ])
+        if (!active) return
+        const clients = new Map(rawClients.map(item => [idOf(item), recordName(item, `Cliente #${idOf(item)}`)]))
+        const sites = new Map(rawSites.map(item => [idOf(item), recordName(item, `Local #${idOf(item)}`)]))
+        const equipment = new Map(rawEquipment.map(item => [idOf(item), recordName(item, `Equipamento #${idOf(item)}`)]))
+        const users = new Map(rawUsers.map(item => [idOf(item), recordName(item, `Técnico #${idOf(item)}`)]))
+        const calendarRows: CalendarRecord[] = rawInspections.map(item => {
+          const date = String(item.scheduledDate ?? '')
+          const time = String(item.scheduledTime ?? '')
+          return {
+            id: String(item.id ?? ''),
+            title: String(item.title ?? `Inspeção #${item.id ?? ''}`),
+            scheduledDate: date ? `${date.slice(0, 10)}T${time ? time.slice(0, 8) : '00:00:00'}` : undefined,
+            status: String(item.status ?? 'SCHEDULED'),
+            clientName: clients.get(String(item.clientId ?? '')) ?? 'Cliente não informado',
+            siteName: sites.get(String(item.siteId ?? '')) ?? 'Local não informado',
+            technicianName: users.get(String(item.technicianId ?? '')) ?? 'Técnico não atribuído',
+            equipmentName: equipment.get(String(item.equipmentId ?? '')) ?? 'Equipamento não informado'
+          }
+        })
+        const dashboardRows: Inspection[] = rawInspections.map(item => {
+          const id = String(item.id ?? '')
+          const date = String(item.scheduledDate ?? '')
+          const time = String(item.scheduledTime ?? '')
+          const status = normalizeStatus(item.status)
+          return {
+            id: id.startsWith('INS-') ? id : `INS-${id.padStart(6, '0')}`,
+            client: clients.get(String(item.clientId ?? '')) ?? 'Cliente não informado',
+            location: sites.get(String(item.siteId ?? '')) ?? 'Local não informado',
+            equipment: equipment.get(String(item.equipmentId ?? '')) ?? 'Equipamento não informado',
+            technician: users.get(String(item.technicianId ?? '')) ?? 'Técnico não atribuído',
+            date: displayDate(date, time),
+            status,
+            priority: normalizePriority(item.priority),
+            progress: status === 'Aprovada' || status === 'Reprovada' || status === 'Aguardando revisão' ? 100 : status === 'Em andamento' ? 50 : 0
+          }
+        })
+        setCalendarInspections(calendarRows)
+        setInspections(dashboardRows)
+      } catch (error) {
+        if (active) setDashboardError(error instanceof Error ? error.message : 'Não foi possível carregar as inspeções da API.')
+      } finally {
+        if (active) setDashboardLoading(false)
+      }
+    }
+    void loadOperationalData()
+    return () => { active = false }
+  }, [authenticated])
+  const [query, setQuery] = useState('')
+  const [selected, setSelected] = useState<Inspection | null>(null)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [dismissedNotifications, setDismissedNotifications] = useState(0)
+
+  const reviewWaiting = inspections.filter(i => i.status === 'Aguardando revisão')
+  const unreadNotifications = Math.max(0, reviewWaiting.length - dismissedNotifications)
+
+  const filtered = useMemo(() => inspections.filter(i =>
+    Object.values(i).join(' ').toLowerCase().includes(query.toLowerCase())
+  ), [inspections, query])
+
+  
+  function handleAuthenticated() {
+    const token =
+      localStorage.getItem('fieldops_token') ||
+      sessionStorage.getItem('fieldops_token')
+
+    if (!token) {
+      return
+    }
+
+    setAuthenticated(true)
+    setPage('Dashboard')
+    setSelected(null)
+    setQuery('')
+    setNotificationsOpen(false)
+  }
+
+
+  function logout() {
+    localStorage.removeItem('fieldops_token')
+    localStorage.removeItem('fieldops_token_type')
+    sessionStorage.removeItem('fieldops_token')
+    sessionStorage.removeItem('fieldops_token_type')
+
+    setAuthenticated(false)
+    setSelected(null)
+    setPage('Dashboard')
+    setQuery('')
+    setNotificationsOpen(false)
+  }
+
+  function openInspection(i: Inspection) {
+    setSelected(i)
+    setPage('Inspeções')
+  }
+
+  if (!authenticated) {
+    return <AuthPage onAuthenticated={handleAuthenticated} />
+  }
+
+  return (
+    <div className={dark ? 'app dark' : 'app'}>
+      <aside className={collapsed ? 'sidebar collapsed' : 'sidebar'}>
+        <div className="brand">
+          <div className="brand-mark"><HardHat size={22} /></div>
+          {!collapsed && (
+            <div>
+              <strong>Field<span>Ops</span></strong>
+              <small>Inspeção em campo</small>
+            </div>
+          )}
+        </div>
+
+        <button className="collapse" onClick={() => setCollapsed(!collapsed)}>
+          <Menu size={19} />
+        </button>
+
+        <nav>
+          {menu.map(([label, Icon]) => (
+            <button
+              key={label}
+              className={page === label ? 'nav active' : 'nav'}
+              onClick={() => {
+                setPage(label)
+                setSelected(null)
+              }}
+              title={label}
+            >
+              <Icon size={19} />
+              {!collapsed && <span>{label}</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="user-mini" title={userEmail}>
+          <div className="avatar">{userInitials || 'U'}</div>
+
+          {!collapsed && (
+            <div>
+              <b>{userName}</b>
+              <small>
+                {userRole === 'ADMIN'
+                  ? 'Administrador'
+                  : userRole === 'SUPERVISOR'
+                    ? 'Supervisor'
+                    : userRole === 'TECHNICIAN'
+                      ? 'Técnico'
+                      : userRole || 'Perfil não identificado'}
+              </small>
+            </div>
+          )}
+        </div>
+
+          {!collapsed && (
+            <button className="logout" onClick={logout}>
+              <LogOut size={16} /> Sair
+            </button>
+          )}
+      </aside>
+
+      <main className="main">
+        <header className="topbar">
+          <div className="crumb">
+            <span>Operações</span>
+            <b>/</b>
+            <strong>{page}</strong>
+          </div>
+
+          <div className="top-actions">
+            <div className="search">
+              <Search size={17} />
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Buscar no FieldOps..."
+              />
+            </div>
+
+            <div className="sync">
+              <span className="dot"></span> Sincronizado
+            </div>
+
+            <button className="icon-btn" onClick={() => setDark(!dark)}>
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
+            <div className="notification-wrap">
+              <button
+                className="icon-btn notification-button"
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                aria-label="Abrir notificações"
+              >
+                <Bell size={18} />
+                {unreadNotifications > 0 && <i />}
+              </button>
+
+              {notificationsOpen && (
+                <div className="notification-panel">
+                  <div className="notification-head">
+                    <div>
+                      <strong>Notificações</strong>
+                      <span>{unreadNotifications} não lidas</span>
+                    </div>
+                    <button onClick={() => setDismissedNotifications(reviewWaiting.length)}>
+                      Marcar como lidas
+                    </button>
+                  </div>
+
+                  {reviewWaiting.length === 0 && (
+                    <div className="notification-item">
+                      <div>
+                        <b>Nenhuma pendência</b>
+                        <span>Não há inspeções aguardando revisão.</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {reviewWaiting.slice(0, 5).map(item => (
+                    <div className="notification-item unread" key={item.id}>
+                      <div className="notification-dot amber">
+                        <AlertTriangle size={15} />
+                      </div>
+                      <div>
+                        <b>Inspeção aguardando revisão</b>
+                        <span>{item.id} · {item.equipment} ({item.technician})</span>
+                        <small>{item.date}</small>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    className="notification-footer"
+                    onClick={() => setNotificationsOpen(false)}
+                  >
+                    Ver todas as atividades <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="avatar" title={userEmail}>
+              {userInitials || 'U'}
+            </div>          </div>
+        </header>
+
+        <section className="content">
+          {page === 'Dashboard' && (
+            <Dashboard
+              inspections={filtered}
+              calendarInspections={calendarInspections}
+              loading={dashboardLoading}
+              error={dashboardError}
+              open={openInspection}
+              onNew={() => setPage('Inspeções')}
+              onViewAll={() => {
+                setPage('Inspeções')
+                setSelected(null)
+              }}
+            />
+          )}
+
+          {page === 'Inspeções' && <InspectionManagementPage />}
+
+          {page === 'Clientes' && <ClientsPage />}
+
+          {page === 'Locais' && <LocationsPage />}
+
+          {page === 'Equipamentos' && <EquipmentPage />}
+
+          {page === 'Calendário' && (
+            <RealCalendarPage
+              inspections={calendarInspections}
+              onNewInspection={() => setPage('Inspeções')}
+              onOpenInspection={(inspection) => {
+                const rawId = String(inspection.id).replace(/^INS-/, '').replace(/^0+/, '')
+                const found = filtered.find(
+                  (item) => String(item.id).replace(/^INS-/, '').replace(/^0+/, '') === rawId
+                )
+
+                if (found) {
+                  openInspection(found)
+                }
+              }}
+            />
+          )}
+          {page === 'Modelos de inspeção' && <InspectionTemplateBuilderPage />}
+
+          {page === 'Não conformidades' && <NonconformitiesPage />}
+
+          {page === 'Auditoria' && <RealAuditPage />}
+
+          {page === 'Configurações' && <RealSettingsPage />}
+
+          {page === 'Usuários' && <UsersPermissionsPage />}
+
+          {page !== 'Dashboard' &&
+            page !== 'Inspeções' &&
+            page !== 'Clientes' &&
+            page !== 'Locais' &&
+            page !== 'Equipamentos' &&
+            page !== 'Calendário' &&
+            page !== 'Modelos de inspeção' &&
+            page !== 'Não conformidades' &&
+            page !== 'Auditoria' &&
+            page !== 'Configurações' &&
+            page !== 'Usuários' && (
+              <ModulePage page={page} />
+            )}
+        </section>
+      </main>
+
+    </div>
+  )
+}
+
+function Dashboard({
+  inspections, calendarInspections, loading, error, open, onNew, onViewAll
+}: {
+  inspections: Inspection[]
+  calendarInspections: CalendarRecord[]
+  loading: boolean
+  error: string
+  open: (i: Inspection) => void
+  onNew: () => void
+  onViewAll: () => void
+}) {
+  const pendingInspections = inspections.filter(
+    inspection => inspection.status !== 'Aprovada' && inspection.status !== 'Reprovada'
+  ).length
+  const [period, setPeriod] = useState<'week' | 'month'>('week')
+  const now = new Date()
+  const parseCalendarDate = (value?: string) => {
+    if (!value) return null
+    const datePart = value.slice(0, 10).split('-').map(Number)
+    if (datePart.length !== 3 || !datePart[0] || !datePart[1] || !datePart[2]) return null
+    return new Date(datePart[0], datePart[1] - 1, datePart[2])
+  }
+  const rowsInRange = calendarInspections.filter(item => {
+    const date = parseCalendarDate(item.scheduledDate)
+    if (!date) return false
+    const daysAgo = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - date.getTime()) / 86400000)
+    return daysAgo >= 0 && daysAgo < (period === 'week' ? 7 : 30)
+  })
+  const chartData = period === 'week'
+    ? Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - index))
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+        return { day: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''), total: calendarInspections.filter(item => item.scheduledDate?.slice(0, 10) === key).length }
+      })
+    : Array.from({ length: 4 }, (_, index) => {
+        const fromDay = index * 7
+        const toDay = index === 3 ? 30 : (index + 1) * 7
+        return { day: `Sem ${index + 1}`, total: rowsInRange.filter(item => {
+          const date = parseCalendarDate(item.scheduledDate)
+          if (!date) return false
+          const daysAgo = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() - date.getTime()) / 86400000)
+          return daysAgo >= fromDay && daysAgo < toDay
+        }).length }
+      })
+  const statusCounts = [
+    { name: 'Agendadas', value: inspections.filter(item => item.status === 'Agendada').length },
+    { name: 'Em andamento', value: inspections.filter(item => item.status === 'Em andamento').length },
+    { name: 'Revisão', value: inspections.filter(item => item.status === 'Aguardando revisão').length },
+    { name: 'Aprovadas', value: inspections.filter(item => item.status === 'Aprovada').length },
+    { name: 'Reprovadas', value: inspections.filter(item => item.status === 'Reprovada').length }
+  ]
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const todayCount = calendarInspections.filter(item => item.scheduledDate?.slice(0, 10) === todayKey).length
+  const cards = [
+    ['Inspeções hoje', String(todayCount), 'Agendadas para hoje', 'blue', ClipboardCheck],
+    ['Em andamento', String(statusCounts[1].value), 'Status atual', 'amber', Activity],
+    ['Aguardando revisão', String(statusCounts[2].value), 'Status atual', 'violet', Clock3],
+    ['Inspeções pendentes', String(pendingInspections), 'Em aberto', 'orange', ClipboardList],
+    ['Aprovadas', String(statusCounts[3].value), 'Status atual', 'green', CheckCircle2],
+    ['Não conformidades', '—', 'Módulo ainda não integrado', 'red', AlertTriangle]
+  ] as const
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">VISÃO OPERACIONAL</div>
+          <h1>Visão geral das operações</h1>
+          <p>Acompanhe a execução das inspeções em campo em tempo real.</p>
+        </div>
+        <button className="primary" onClick={onNew}>
+          <Plus size={18} /> Nova inspeção
+        </button>
+      </div>
+
+      {error && <div className="panel" role="alert"><strong>Não foi possível atualizar os indicadores:</strong> {error}. Os dados abaixo podem estar desatualizados.</div>}
+      {loading && <p className="muted" role="status">Atualizando dados operacionais...</p>}
+
+      <div className="stats">
+        {cards.map(([label, value, change, color, Icon]) => (
+          <div className="stat" key={label}>
+            <div className="stat-top">
+              <span>{label}</span>
+              <div className={'stat-icon ' + color}>
+                <Icon size={19} />
+              </div>
+            </div>
+            <div className="stat-value">{value}</div>
+            <div className="stat-trend">{change}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid-2">
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>Inspeções por período</h3>
+              <span>{period === 'week' ? 'Últimos 7 dias · dados reais' : 'Últimos 30 dias · dados reais'}</span>
+            </div>
+            <button
+              className="select"
+              onClick={() => setPeriod(period === 'week' ? 'month' : 'week')}
+            >
+              {period === 'week' ? 'Esta semana' : 'Este mês'}
+              <ChevronDown size={15} />
+            </button>
+          </div>
+
+          <div className="chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2563eb" stopOpacity=".24" />
+                    <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--grid)" />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#2563eb"
+                  strokeWidth={3}
+                  fill="url(#fill)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <div>
+              <h3>Inspeções por status</h3>
+              <span>Distribuição atual</span>
+            </div>
+          </div>
+          <div className="chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={statusCounts} layout="vertical" margin={{ left: 10, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--grid)" />
+                <XAxis type="number" axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" width={95} axisLine={false} tickLine={false} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#0f172a" radius={[0, 5, 5, 0]} barSize={18} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <div>
+            <h3>Inspeções recentes</h3>
+            <span>Atividades mais recentes</span>
+          </div>
+          <button className="ghost" onClick={onViewAll}>
+            Ver todas <ArrowRight size={15} />
+          </button>
+        </div>
+        <InspectionTable inspections={inspections.slice(0, 5)} open={open} />
+      </div>
+    </>
+  )
+}
+
+function InspectionsPage({
+  inspections, open, selected, approve, reject, onNew
+}: {
+  inspections: Inspection[]
+  open: (i: Inspection) => void
+  selected: Inspection | null
+  approve: () => void
+  reject: () => void
+  onNew: () => void
+}) {
+  const [statusFilter, setStatusFilter] = useState('Todos')
+  const [priorityFilter, setPriorityFilter] = useState('Todas')
+  const [technicianFilter, setTechnicianFilter] = useState('Todos')
+  const [localQuery, setLocalQuery] = useState('')
+
+  const visible = inspections.filter(item =>
+    `${item.id} ${item.client} ${item.location} ${item.equipment} ${item.technician}`
+      .toLowerCase()
+      .includes(localQuery.toLowerCase()) &&
+    (statusFilter === 'Todos' || item.status === statusFilter) &&
+    (priorityFilter === 'Todas' || item.priority === priorityFilter) &&
+    (technicianFilter === 'Todos' || item.technician === technicianFilter)
+  )
+
+  if (selected) {
+    return (
+      <div>
+        <button className="back" onClick={() => open(selected)}>
+          ← Voltar para inspeções
+        </button>
+
+        <div className="page-head">
+          <div>
+            <div className="eyebrow">{selected.id}</div>
+            <h1>{selected.equipment}</h1>
+            <p>{selected.client} · {selected.location}</p>
+          </div>
+          <StatusBadge status={selected.status} />
+        </div>
+
+        <div className="detail-grid">
+          <div className="panel detail-main">
+            <div className="detail-banner">
+              <div className="qr"><QrCode size={42} /></div>
+              <div>
+                <b>Inspeção técnica</b>
+                <span>Modelo: Segurança Operacional · v2.1</span>
+              </div>
+              <div className="progress-box">
+                <span>Progresso</span>
+                <strong>{selected.progress}%</strong>
+                <div className="progress">
+                  <i style={{ width: selected.progress + '%' }} />
+                </div>
+              </div>
+            </div>
+
+            <h3>Checklist da inspeção</h3>
+            {[
+              'Identificação do equipamento',
+              'Condições de segurança',
+              'Componentes e conexões',
+              'Evidências fotográficas'
+            ].map((item, index) => (
+              <div className="check-row" key={item}>
+                <div className="check-ok"><CheckCircle2 size={18} /></div>
+                <div>
+                  <b>{index + 1}. {item}</b>
+                  <span>Verificação realizada conforme procedimento.</span>
+                </div>
+                <span className="answer">Conforme</span>
+              </div>
+            ))}
+
+            <div className="evidence">
+              <h3>Evidências</h3>
+              <div className="photo-placeholder">
+                <Download size={25} />
+                <span>Galeria de evidências</span>
+                <small>As fotos enviadas pelo técnico aparecerão aqui.</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="detail-side">
+            <div className="panel">
+              <h3>Dados da inspeção</h3>
+              <Info label="Técnico" value={selected.technician} />
+              <Info label="Data" value={selected.date} />
+              <Info label="Prioridade" value={selected.priority} />
+              <Info label="Equipamento" value={selected.equipment} />
+              <Info label="Local" value={selected.location} />
+            </div>
+
+            <div className="panel">
+              <h3>Revisão</h3>
+              <p className="muted">
+                Revise as respostas e evidências antes de tomar uma decisão.
+              </p>
+              <button className="primary full" onClick={approve}>
+                <CheckCircle2 size={17} /> Aprovar inspeção
+              </button>
+              <button className="danger full" onClick={reject}>
+                <X size={17} /> Reprovar inspeção
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">OPERAÇÕES</div>
+          <h1>Inspeções</h1>
+          <p>Planeje, acompanhe e revise inspeções técnicas.</p>
+        </div>
+        <button className="primary" onClick={onNew}>
+          <Plus size={18} /> Nova inspeção
+        </button>
+      </div>
+
+      <div className="toolbar">
+        <div className="search wide">
+          <Search size={17} />
+          <input
+            value={localQuery}
+            onChange={e => setLocalQuery(e.target.value)}
+            placeholder="Filtrar inspeções..."
+          />
+        </div>
+
+        <select className="filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option>Todos</option>
+          <option>Agendada</option>
+          <option>Em andamento</option>
+          <option>Aguardando revisão</option>
+          <option>Aprovada</option>
+          <option>Reprovada</option>
+        </select>
+
+        <select className="filter" value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}>
+          <option>Todas</option>
+          <option>Baixa</option>
+          <option>Normal</option>
+          <option>Alta</option>
+          <option>Crítica</option>
+        </select>
+
+        <select className="filter" value={technicianFilter} onChange={e => setTechnicianFilter(e.target.value)}>
+          <option>Todos</option>
+          <option>João Silva</option>
+          <option>Marcos Lima</option>
+          <option>Ana Costa</option>
+        </select>
+      </div>
+
+      <div className="panel">
+        <InspectionTable inspections={visible} open={open} />
+      </div>
+    </>
+  )
+}
+
+function InspectionTable({
+  inspections, open
+}: {
+  inspections: Inspection[]
+  open: (i: Inspection) => void
+}) {
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Cliente / Equipamento</th>
+            <th>Técnico</th>
+            <th>Data</th>
+            <th>Prioridade</th>
+            <th>Status</th>
+            <th>Progresso</th>
+          </tr>
+        </thead>
+        <tbody>
+          {inspections.map(item => (
+            <tr key={item.id} onClick={() => open(item)}>
+              <td><b className="id">{item.id}</b></td>
+              <td>
+                <b>{item.client}</b>
+                <span>{item.equipment}</span>
+              </td>
+              <td>{item.technician}</td>
+              <td>{item.date}</td>
+              <td><Priority p={item.priority} /></td>
+              <td><StatusBadge status={item.status} /></td>
+              <td>
+                <div className="mini-progress">
+                  <i style={{ width: item.progress + '%' }} />
+                </div>
+                <small>{item.progress}%</small>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function StatusBadge({ status }: { status: Status }) {
+  const className =
+    status === 'Aprovada' ? 'approved' :
+    status === 'Reprovada' ? 'rejected' :
+    status === 'Em andamento' ? 'running' :
+    status === 'Aguardando revisão' ? 'review' : 'scheduled'
+
+  return <span className={'badge ' + className}>{status}</span>
+}
+
+function Priority({ p }: { p: Inspection['priority'] }) {
+  return <span className={'priority ' + p.toLowerCase()}><i /> {p}</span>
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="info">
+      <span>{label}</span>
+      <b>{value}</b>
+    </div>
+  )
+}
+
+const resources: Record<string, Resource[]> = {
+  'Modelos de inspeção': [
+    { id: 'MOD-0021', name: 'Segurança Operacional', detail: '24 itens · v2.1', status: 'Publicado', meta: 'Atualizado hoje' },
+    { id: 'MOD-0018', name: 'NR-12 Máquinas e Equipamentos', detail: '31 itens · v1.4', status: 'Publicado', meta: 'Atualizado em 02/08/2026' },
+    { id: 'MOD-0011', name: 'Instalações Elétricas', detail: '18 itens · v3.0', status: 'Rascunho', meta: 'Criado em 28/07/2026' }
+  ],
+  Clientes: [
+    { id: 'CLI-001', name: 'Toyota Industrial', detail: 'Indústria automotiva', status: 'Ativo', meta: '3 locais · 48 equipamentos' },
+    { id: 'CLI-002', name: 'Metalúrgica Alpha', detail: 'Metalurgia', status: 'Ativo', meta: '1 local · 19 equipamentos' },
+    { id: 'CLI-003', name: 'Indústria NovaTech', detail: 'Manufatura', status: 'Ativo', meta: '2 locais · 27 equipamentos' }
+  ],
+  Locais: [
+    { id: 'LOC-021', name: 'Planta Sorocaba', detail: 'Toyota Industrial · Sorocaba, SP', status: 'Ativo', meta: '18 equipamentos' },
+    { id: 'LOC-014', name: 'Unidade Industrial 01', detail: 'Metalúrgica Alpha · Campinas, SP', status: 'Ativo', meta: '19 equipamentos' },
+    { id: 'LOC-009', name: 'Planta Campinas', detail: 'Indústria NovaTech · Campinas, SP', status: 'Ativo', meta: '27 equipamentos' }
+  ],
+  Equipamentos: [
+    { id: 'PE-021', name: 'Painel Elétrico PE-021', detail: 'Planta Sorocaba · Toyota Industrial', status: 'Operacional', meta: 'Última inspeção: 11/08/2026' },
+    { id: 'CP-001', name: 'Compressor CP-001', detail: 'Unidade Industrial 01 · Metalúrgica Alpha', status: 'Atenção', meta: 'Última inspeção: 11/08/2026' },
+    { id: 'MTR-103', name: 'Motor MTR-103', detail: 'Planta Campinas · Indústria NovaTech', status: 'Operacional', meta: 'Última inspeção: 10/08/2026' }
+  ],
+  'Não conformidades': [
+    { id: 'NC-0048', name: 'Proteção do compressor ausente', detail: 'CP-001 · Metalúrgica Alpha', status: 'Aberta', meta: 'Alta · vence em 3 dias' },
+    { id: 'NC-0047', name: 'Cabo com isolamento danificado', detail: 'PE-021 · Toyota Industrial', status: 'Em tratamento', meta: 'Crítica · Carlos Souza' },
+    { id: 'NC-0042', name: 'Sinalização de segurança apagada', detail: 'MTR-103 · Indústria NovaTech', status: 'Resolvida', meta: 'Baixa · resolvida em 08/08/2026' }
+  ]
+}
+
+function ModulePage({ page }: { page: string }) {
+  if (page === 'Relatórios') return <ReportsPage />
+  if (page === 'Auditoria') return <AuditPage />
+  if (page === 'Configurações') return <SettingsPage />
+
+  return <ResourcePage page={page} initial={resources[page] || []} />
+}
+
+function ResourcePage({ page, initial }: { page: string; initial: Resource[] }) {
+  const [items, setItems] = useState(initial.map(item => ({ ...item, kind: page })))
+  const [query, setQuery] = useState('')
+  const [modal, setModal] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draft, setDraft] = useState({ name: '', detail: '' })
+  const [statusFilter, setStatusFilter] = useState('Todos')
+
+  const filtered = items.filter(item =>
+    item.kind === page &&
+    (statusFilter === 'Todos' || item.status === statusFilter) &&
+    `${item.id} ${item.name} ${item.detail} ${item.status}`
+      .toLowerCase()
+      .includes(query.toLowerCase())
+  )
+
+  const labels: Record<string, [string, string, string]> = {
+    'Modelos de inspeção': ['modelos', 'checklists versionados', 'Novo modelo'],
+    Clientes: ['clientes', 'organizações atendidas', 'Novo cliente'],
+    Locais: ['locais', 'unidades e plantas', 'Novo local'],
+    Equipamentos: ['equipamentos', 'ativos monitorados', 'Novo equipamento'],
+    'Não conformidades': ['não conformidades', 'ocorrências registradas', 'Nova ocorrência']
+  }
+
+  const resourceIcons: Record<string, typeof Wrench> = {
+    'Modelos de inspeção': ClipboardList,
+    Clientes: Users,
+    Locais: MapPin,
+    Equipamentos: Wrench,
+    'Não conformidades': AlertTriangle
+  }
+
+  const [noun, subtitle, action] = labels[page] || ['registros', 'dados operacionais', 'Novo registro']
+  const ResourceIcon = resourceIcons[page] || Building2
+
+  function save() {
+    if (!draft.name.trim()) return
+
+    if (editing) {
+      setItems(items.map(item =>
+        item.id === editing
+          ? { ...item, name: draft.name, detail: draft.detail || 'Sem descrição' }
+          : item
+      ))
+    } else {
+      setItems([
+        {
+          id: `${page.slice(0, 3).toUpperCase()}-${String(items.length + 1).padStart(3, '0')}`,
+          name: draft.name,
+          detail: draft.detail || 'Sem descrição',
+          status: 'Ativo',
+          meta: 'Criado agora',
+          kind: page
+        },
+        ...items
+      ])
+    }
+
+    setDraft({ name: '', detail: '' })
+    setEditing(null)
+    setModal(false)
+  }
+
+  function edit(item: Resource) {
+    setEditing(item.id)
+    setDraft({ name: item.name, detail: item.detail })
+    setModal(true)
+  }
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="GESTÃO OPERACIONAL"
+        title={page}
+        description={`Gerencie ${subtitle} do FieldOps.`}
+        action={action}
+        onAction={() => setModal(true)}
+      />
+
+      <div className="toolbar">
+        <div className="search wide">
+          <Search size={17} />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder={`Buscar ${noun}...`}
+          />
+        </div>
+
+        <select className="filter" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option>Todos</option>
+          <option>Ativo</option>
+          <option>Operacional</option>
+          <option>Atenção</option>
+          <option>Publicado</option>
+          <option>Rascunho</option>
+          <option>Aberta</option>
+          <option>Em tratamento</option>
+          <option>Resolvida</option>
+        </select>
+
+        <button className="filter">
+          <SlidersHorizontal size={15} /> Filtros
+        </button>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <div>
+            <h3>{filtered.length} {noun}</h3>
+            <span>Registros exclusivos deste módulo</span>
+          </div>
+          <button
+            className="ghost"
+            onClick={() => downloadCsv(
+              `${noun}.csv`,
+              [
+                ['ID', 'Nome', 'Detalhes', 'Status', 'Metadados'],
+                ...filtered.map(item => [item.id, item.name, item.detail, item.status, item.meta])
+              ]
+            )}
+          >
+            <Download size={15} /> Exportar
+          </button>
+        </div>
+
+        <div className="resource-list">
+          {filtered.map(item => (
+            <div className="resource-row" key={item.id}>
+              <div className="resource-icon"><ResourceIcon size={19} /></div>
+              <div className="resource-main">
+                <b>{item.name}</b>
+                <span>{item.detail}</span>
+              </div>
+
+              <span className={
+                'badge ' +
+                (
+                  item.status === 'Resolvida' ||
+                  item.status === 'Publicado' ||
+                  item.status === 'Ativo' ||
+                  item.status === 'Operacional'
+                    ? 'approved'
+                    : item.status === 'Atenção' || item.status === 'Em tratamento'
+                      ? 'review'
+                      : 'scheduled'
+                )
+              }>
+                {item.status}
+              </span>
+
+              <div className="resource-meta">{item.meta}</div>
+
+              <button className="icon-btn subtle" title="Editar" onClick={() => edit(item)}>
+                <Pencil size={16} />
+              </button>
+              <button
+                className="icon-btn subtle"
+                title="Excluir"
+                onClick={() => setItems(items.filter(current => current.id !== item.id))}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {filtered.length === 0 && (
+          <div className="no-results">Nenhum registro encontrado.</div>
+        )}
+      </div>
+
+      {modal && (
+        <FormModal
+          page={page}
+          title={editing ? `Editar ${noun.slice(0, -1)}` : action}
+          draft={draft}
+          setDraft={setDraft}
+          onClose={() => {
+            setModal(false)
+            setEditing(null)
+          }}
+          onSave={save}
+        />
+      )}
+    </>
+  )
+}
+
+function PageHeading({
+  eyebrow, title, description, action, onAction
+}: {
+  eyebrow: string
+  title: string
+  description: string
+  action: string
+  onAction: () => void
+}) {
+  return (
+    <div className="page-head">
+      <div>
+        <div className="eyebrow">{eyebrow}</div>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+      <button className="primary" onClick={onAction}>
+        <Plus size={18} /> {action}
+      </button>
+    </div>
+  )
+}
+
+function ReportsPage() {
+  const [range, setRange] = useState('Últimos 30 dias')
+  const reportRows = [
+    ['Indicador', 'Valor'],
+    ['Taxa de aprovação', '84,6%'],
+    ['Tempo médio', '42 min'],
+    ['Conclusão no prazo', '91,2%']
+  ]
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="INTELIGÊNCIA"
+        title="Relatórios"
+        description="Transforme os dados de campo em decisões operacionais."
+        action="Gerar relatório"
+        onAction={() => downloadCsv('relatorio-fieldops.csv', reportRows)}
+      />
+
+      <div className="report-controls">
+        <button
+          className="select"
+          onClick={() => setRange(range === 'Últimos 30 dias' ? 'Este trimestre' : 'Últimos 30 dias')}
+        >
+          {range} <ChevronDown size={15} />
+        </button>
+        <button className="ghost" onClick={() => downloadCsv('relatorio-fieldops.csv', reportRows)}>
+          <Download size={16} /> Exportar CSV
+        </button>
+        <button className="ghost" onClick={() => window.print()}>
+          <FileBarChart size={16} /> PDF
+        </button>
+      </div>
+
+      <div className="stats report-stats">
+        <div className="stat">
+          <span>Taxa de aprovação</span>
+          <div className="stat-value">84,6%</div>
+          <div className="stat-trend">+6,4% no período</div>
+        </div>
+        <div className="stat">
+          <span>Tempo médio</span>
+          <div className="stat-value">42 min</div>
+          <div className="stat-trend">-8 min no período</div>
+        </div>
+        <div className="stat">
+          <span>Conclusão no prazo</span>
+          <div className="stat-value">91,2%</div>
+          <div className="stat-trend">+3,8% no período</div>
+        </div>
+      </div>
+
+      <div className="grid-2">
+        <div className="panel report-panel">
+          <h3>Relatórios disponíveis</h3>
+          {[
+            'Desempenho por técnico',
+            'Não conformidades por cliente',
+            'Histórico de inspeções',
+            'Indicadores de SLA'
+          ].map(item => (
+            <button
+              className="report-row"
+              key={item}
+              onClick={() => downloadCsv(
+                `${item.toLowerCase().replaceAll(' ', '-')}.csv`,
+                reportRows
+              )}
+            >
+              <FileBarChart size={18} />
+              <span>
+                <b>{item}</b>
+                <small>Atualizado em 11/08/2026</small>
+              </span>
+              <Download size={16} />
+            </button>
+          ))}
+        </div>
+
+        <div className="panel report-panel">
+          <h3>Resumo de produtividade</h3>
+          {[
+            ['Inspeções concluídas', '112'],
+            ['Horas em campo', '86h 40min'],
+            ['Clientes atendidos', '18'],
+            ['Alertas críticos', '5']
+          ].map(row => (
+            <div className="metric-line" key={row[0]}>
+              <span>{row[0]}</span>
+              <b>{row[1]}</b>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function AuditPage() {
+  const logs = [
+    ['Hoje, 10:42', 'Carlos Souza', 'aprovou a inspeção INS-000122', 'Aprovação'],
+    ['Hoje, 09:18', 'Ana Costa', 'enviou evidências para INS-000124', 'Evidência'],
+    ['Ontem, 17:06', 'Marcos Lima', 'alterou o status de NC-0048', 'Atualização'],
+    ['10/08/2026, 15:30', 'Carlos Souza', 'criou o modelo MOD-0021', 'Criação']
+  ]
+
+  const [query, setQuery] = useState('')
+  const [type, setType] = useState('Todos')
+
+  const visible = logs.filter(log =>
+    (type === 'Todos' || log[3] === type) &&
+    log.join(' ').toLowerCase().includes(query.toLowerCase())
+  )
+
+  const exportLog = () => downloadCsv(
+    'log-auditoria.csv',
+    [['Data', 'Usuário', 'Ação', 'Tipo'], ...visible]
+  )
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="GOVERNANÇA"
+        title="Auditoria"
+        description="Rastreabilidade completa das ações realizadas no sistema."
+        action="Exportar log"
+        onAction={exportLog}
+      />
+
+      <div className="toolbar">
+        <div className="search wide">
+          <Search size={17} />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Buscar por usuário ou ação..."
+          />
+        </div>
+
+        <select className="filter" value={type} onChange={e => setType(e.target.value)}>
+          <option>Todos</option>
+          <option>Aprovação</option>
+          <option>Evidência</option>
+          <option>Atualização</option>
+          <option>Criação</option>
+        </select>
+
+        <button className="filter" onClick={() => setQuery('')}>
+          <CalendarDays size={15} /> Limpar
+        </button>
+      </div>
+
+      <div className="panel">
+        <div className="audit-list">
+          {visible.map(log => (
+            <div className="audit-row" key={log[0] + log[1]}>
+              <div className="audit-icon"><ShieldCheck size={17} /></div>
+              <div>
+                <b>{log[1]} <span>{log[2]}</span></b>
+                <small>{log[0]}</small>
+              </div>
+              <span className="badge scheduled">{log[3]}</span>
+              <MoreHorizontal size={18} className="audit-more" />
+            </div>
+          ))}
+
+          {visible.length === 0 && (
+            <div className="no-results">Nenhuma atividade encontrada.</div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function SettingsPage() {
+  const [saved, setSaved] = useState(false)
+  const [notifications, setNotifications] = useState(true)
+  const [offline, setOffline] = useState(true)
+  const [tab, setTab] = useState('Geral')
+  const [organization, setOrganization] = useState('FieldOps Operações')
+  const [timezone, setTimezone] = useState('America/Sao_Paulo')
+
+  const tabs = [
+    ['Geral', Settings],
+    ['Notificações', Bell],
+    ['Equipe e permissões', Users],
+    ['Segurança', ShieldCheck]
+  ] as const
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="ADMINISTRAÇÃO"
+        title="Configurações"
+        description="Ajuste preferências, notificações e regras do ambiente."
+        action="Salvar alterações"
+        onAction={() => setSaved(true)}
+      />
+
+      <div className="settings-grid">
+        <div className="panel settings-nav">
+          {tabs.map(([label, Icon]) => (
+            <button
+              key={label}
+              className={'settings-tab ' + (tab === label ? 'active' : '')}
+              onClick={() => {
+                setTab(label)
+                setSaved(false)
+              }}
+            >
+              <Icon size={17} /> {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="panel settings-form">
+          <h3>{tab === 'Geral' ? 'Preferências do ambiente' : tab}</h3>
+          <p className="muted">
+            {tab === 'Geral'
+              ? 'Defina como sua equipe trabalha no FieldOps.'
+              : `Configure as opções de ${tab.toLowerCase()}.`}
+          </p>
+
+          {tab === 'Geral' && (
+            <>
+              <label>
+                Nome da organização
+                <input value={organization} onChange={e => setOrganization(e.target.value)} />
+              </label>
+              <label>
+                Fuso horário
+                <select value={timezone} onChange={e => setTimezone(e.target.value)}>
+                  <option value="America/Sao_Paulo">(GMT-03:00) São Paulo</option>
+                  <option value="America/New_York">(GMT-04:00) New York</option>
+                </select>
+              </label>
+            </>
+          )}
+
+          {(tab === 'Geral' || tab === 'Notificações') && (
+            <div className="toggle-row">
+              <div>
+                <b>Notificações de revisão</b>
+                <span>Avise supervisores quando uma inspeção aguardar revisão.</span>
+              </div>
+              <button
+                className={'toggle ' + (notifications ? 'on' : '')}
+                onClick={() => setNotifications(!notifications)}
+              >
+                <i />
+              </button>
+            </div>
+          )}
+
+          {(tab === 'Geral' || tab === 'Segurança') && (
+            <div className="toggle-row">
+              <div>
+                <b>Modo offline para técnicos</b>
+                <span>Permita coleta de dados sem conexão.</span>
+              </div>
+              <button
+                className={'toggle ' + (offline ? 'on' : '')}
+                onClick={() => setOffline(!offline)}
+              >
+                <i />
+              </button>
+            </div>
+          )}
+
+          {saved && (
+            <div className="saved">
+              <CheckCircle2 size={16} /> Alterações salvas nesta sessão.
+            </div>
+          )}
+
+          <button className="primary" onClick={() => setSaved(true)}>
+            <Save size={16} /> Salvar preferências
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+function InspectionModal({
+  onClose, onSave
+}: {
+  onClose: () => void
+  onSave: (draft: InspectionDraft) => void
+}) {
+  const [draft, setDraft] = useState<InspectionDraft>({
+    client: '',
+    location: '',
+    equipment: '',
+    technician: '',
+    date: '2026-08-25T09:00',
+    priority: 'Normal'
+  })
+
+  const ready = Object.values(draft).every(value => value.trim())
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div
+        className="modal inspection-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="inspection-modal-title"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="modal-topline">
+          <span className="modal-kicker">NOVA INSPEÇÃO</span>
+          <button className="close" onClick={onClose} aria-label="Fechar">
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="modal-intro">
+          <div className="modal-icon"><ClipboardCheck size={22} /></div>
+          <div>
+            <h2 id="inspection-modal-title">Agendar inspeção</h2>
+            <p>Organize a próxima visita e atribua os responsáveis.</p>
+          </div>
+        </div>
+
+        <div className="inspection-form-grid">
+          <label>
+            Cliente <span>Obrigatório</span>
+            <input
+              autoFocus
+              placeholder="Ex.: Toyota Industrial"
+              value={draft.client}
+              onChange={e => setDraft({ ...draft, client: e.target.value })}
+            />
+          </label>
+
+          <label>
+            Local <span>Obrigatório</span>
+            <input
+              placeholder="Ex.: Planta Sorocaba"
+              value={draft.location}
+              onChange={e => setDraft({ ...draft, location: e.target.value })}
+            />
+          </label>
+
+          <label className="span-2">
+            Equipamento <span>Obrigatório</span>
+            <input
+              placeholder="Ex.: Painel Elétrico PE-021"
+              value={draft.equipment}
+              onChange={e => setDraft({ ...draft, equipment: e.target.value })}
+            />
+          </label>
+
+          <label>
+            Técnico responsável <span>Obrigatório</span>
+            <select
+              value={draft.technician}
+              onChange={e => setDraft({ ...draft, technician: e.target.value })}
+            >
+              <option value="">Selecione um técnico</option>
+              <option>João Silva</option>
+              <option>Marcos Lima</option>
+              <option>Ana Costa</option>
+            </select>
+          </label>
+
+          <label>
+            Data e horário <span>Obrigatório</span>
+            <input
+              type="datetime-local"
+              value={draft.date}
+              min="2026-08-25T00:00"
+              onChange={e => setDraft({ ...draft, date: e.target.value })}
+            />
+          </label>
+
+          <label className="span-2">
+            Prioridade <span>Obrigatório</span>
+            <select
+              value={draft.priority}
+              onChange={e => setDraft({
+                ...draft,
+                priority: e.target.value as InspectionDraft['priority']
+              })}
+            >
+              <option>Baixa</option>
+              <option>Normal</option>
+              <option>Alta</option>
+              <option>Crítica</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="modal-footer">
+          <small><CheckCircle2 size={14} /> A inspeção será criada como agendada</small>
+          <div>
+            <button className="modal-cancel" onClick={onClose}>Cancelar</button>
+            <button
+              className="primary"
+              disabled={!ready}
+              onClick={() => onSave(draft)}
+            >
+              <CalendarCheck size={16} /> Criar inspeção
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FormModal({
+  page, title, draft, setDraft, onClose, onSave
+}: {
+  page: string
+  title: string
+  draft: { name: string; detail: string }
+  setDraft: (draft: { name: string; detail: string }) => void
+  onClose: () => void
+  onSave: () => void
+}) {
+  const editing = title.startsWith('Editar')
+
+  const config: Record<string, {
+    icon: typeof Wrench
+    eyebrow: string
+    name: string
+    namePlaceholder: string
+    detail: string
+    detailPlaceholder: string
+    optionLabel: string
+    options: string[]
+  }> = {
+    'Modelos de inspeção': {
+      icon: ClipboardList,
+      eyebrow: 'NOVO CHECKLIST',
+      name: 'Nome do modelo',
+      namePlaceholder: 'Ex.: Segurança Operacional',
+      detail: 'Objetivo e escopo',
+      detailPlaceholder: 'Descreva quando este checklist deve ser usado...',
+      optionLabel: 'Versão inicial',
+      options: ['v1.0 · Rascunho', 'v1.0 · Publicado']
+    },
+    Clientes: {
+      icon: Building2,
+      eyebrow: 'NOVO CLIENTE',
+      name: 'Razão social',
+      namePlaceholder: 'Ex.: Toyota Industrial',
+      detail: 'Segmento e observações',
+      detailPlaceholder: 'Adicione informações sobre a organização...',
+      optionLabel: 'Status do cliente',
+      options: ['Ativo', 'Em implantação', 'Prospect']
+    },
+    Locais: {
+      icon: MapPin,
+      eyebrow: 'NOVO LOCAL',
+      name: 'Nome da unidade',
+      namePlaceholder: 'Ex.: Planta Sorocaba',
+      detail: 'Endereço e referência',
+      detailPlaceholder: 'Informe endereço, cidade ou ponto de referência...',
+      optionLabel: 'Tipo de unidade',
+      options: ['Planta industrial', 'Unidade operacional', 'Escritório']
+    },
+    Equipamentos: {
+      icon: Wrench,
+      eyebrow: 'NOVO EQUIPAMENTO',
+      name: 'Nome / identificação',
+      namePlaceholder: 'Ex.: Compressor CP-002',
+      detail: 'Descrição ou observação',
+      detailPlaceholder: 'Adicione detalhes técnicos ou observações...',
+      optionLabel: 'Status operacional',
+      options: ['Operacional', 'Atenção', 'Fora de operação']
+    },
+    'Não conformidades': {
+      icon: AlertTriangle,
+      eyebrow: 'NOVA OCORRÊNCIA',
+      name: 'Título da ocorrência',
+      namePlaceholder: 'Ex.: Proteção do compressor ausente',
+      detail: 'Descrição da não conformidade',
+      detailPlaceholder: 'Descreva o risco encontrado e a ação necessária...',
+      optionLabel: 'Prioridade',
+      options: ['Baixa', 'Normal', 'Alta', 'Crítica']
+    }
+  }
+
+  const current = config[page] || config.Equipamentos
+  const Icon = current.icon
+  const [option, setOption] = useState(current.options[0])
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="form-modal-title"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="modal-topline">
+          <span className="modal-kicker">
+            {editing ? 'ATUALIZAÇÃO DE REGISTRO' : current.eyebrow}
+          </span>
+          <button className="close" onClick={onClose} aria-label="Fechar">
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="modal-intro">
+          <div className="modal-icon"><Icon size={22} /></div>
+          <div>
+            <h2 id="form-modal-title">{title}</h2>
+            <p>
+              {editing
+                ? 'Revise as informações e mantenha sua operação atualizada.'
+                : `Configure os dados principais de ${page.toLowerCase()}.`}
+            </p>
+          </div>
+        </div>
+
+        <div className="modal-context">
+          <div className="context-icon"><ClipboardList size={16} /></div>
+          <div>
+            <strong>Informações essenciais</strong>
+            <span>Você poderá complementar este registro depois.</span>
+          </div>
+          <span className="context-status"><i /> Rascunho</span>
+        </div>
+
+        <div className="modal-fields">
+          <label>
+            {current.name} <span>Obrigatório</span>
+            <div className="modal-field">
+              <Icon size={17} />
+              <input
+                autoFocus
+                placeholder={current.namePlaceholder}
+                value={draft.name}
+                onChange={e => setDraft({ ...draft, name: e.target.value })}
+              />
+            </div>
+          </label>
+
+          <label>
+            {current.detail} <em>Opcional</em>
+            <div className="modal-field textarea">
+              <FileText size={17} />
+              <textarea
+                rows={3}
+                placeholder={current.detailPlaceholder}
+                value={draft.detail}
+                onChange={e => setDraft({ ...draft, detail: e.target.value })}
+              />
+            </div>
+          </label>
+
+          <label className="modal-option">
+            {current.optionLabel}
+            <select value={option} onChange={e => setOption(e.target.value)}>
+              {current.options.map(item => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="modal-footer">
+          <small><CheckCircle2 size={14} /> Salvamento seguro e rastreável</small>
+          <div>
+            <button className="modal-cancel" onClick={onClose}>Cancelar</button>
+            <button
+              className="primary"
+              disabled={!draft.name.trim()}
+              onClick={onSave}
+            >
+              <Save size={16} /> {editing ? 'Salvar alterações' : 'Salvar registro'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default App

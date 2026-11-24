@@ -1,0 +1,233 @@
+
+.settings-page-heading {
+  margin-bottom: 22px;
+}
+
+.settings-simple-card {
+  background: var(--panel, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 18px;
+  min-width: 0;
+}
+
+.settings-section-title {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding-bottom: 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  color: #2454d8;
+}
+
+.settings-section-title h2 {
+  margin: 0 0 5px;
+  font-size: 18px;
+  color: var(--text, #172033);
+}
+
+.settings-section-title p {
+  margin: 0;
+  color: var(--muted, #64748b);
+  font-size: 13px;
+}
+
+.settings-simple-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 22px;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 19px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #172033);
+}
+
+.settings-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #dbe2ee);
+  border-radius: 8px;
+  background: var(--panel, #fff);
+  color: var(--text, #172033);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  outline: none;
+}
+
+.settings-field input:focus {
+  border-color: #2454d8;
+  box-shadow: 0 0 0 3px rgba(36, 84, 216, 0.1);
+}
+
+.settings-field input[readonly] {
+  background: var(--surface, #f3f6fb);
+  color: var(--muted, #64748b);
+  cursor: not-allowed;
+}
+
+.settings-readonly-label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted, #64748b);
+}
+
+.settings-input-icon {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border, #dbe2ee);
+  border-radius: 8px;
+  padding-left: 11px;
+  color: var(--muted, #64748b);
+}
+
+.settings-input-icon input {
+  border: 0;
+  box-shadow: none !important;
+  background: transparent;
+}
+
+.settings-access-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  color: #2454d8;
+  margin: 2px 0 22px;
+}
+
+.settings-access-card > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-access-card b {
+  color: var(--text, #172033);
+  font-size: 14px;
+}
+
+.settings-access-card p {
+  margin: 7px 0 0;
+  color: var(--muted, #64748b);
+  font-size: 13px;
+}
+
+.settings-access-card strong {
+  color: var(--text, #172033);
+  font-weight: 600;
+}
+
+.settings-access-card small {
+  display: block;
+  margin-top: 9px;
+  color: var(--muted, #64748b);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border, #e2e8f0);
+  margin-top: 4px;
+}
+
+.settings-actions button,
+.settings-password-card > .secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-actions .primary {
+  border: 1px solid #2454d8;
+  background: #2454d8;
+  color: #fff;
+}
+
+.settings-actions .secondary,
+.settings-password-card > .secondary {
+  border: 1px solid var(--border, #d7deea);
+  background: var(--panel, #fff);
+  color: var(--text, #172033);
+}
+
+.settings-actions button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.settings-password-form {
+  max-width: 620px;
+}
+
+.settings-password-form .settings-field small {
+  font-weight: 400;
+  color: var(--muted, #64748b);
+}
+
+.settings-feedback {
+  padding: 13px 15px;
+  border-radius: 9px;
+  font-size: 13px;
+  margin: 14px 0;
+}
+
+.settings-feedback.success {
+  background: #ecfdf3;
+  color: #167344;
+  border: 1px solid #bbf7d0;
+}
+
+.settings-feedback.error {
+  background: #fff1f2;
+  color: #b42318;
+  border: 1px solid #fecdd3;
+}
+
+.settings-status {
+  color: var(--muted, #64748b);
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .settings-simple-card {
+    padding: 17px;
+  }
+
+  .settings-simple-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-actions {
+    flex-wrap: wrap;
+  }
+
+  .settings-actions button {
+    width: 100%;
+  }
+}

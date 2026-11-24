@@ -1,0 +1,35 @@
+package com.fieldops.fieldops_api.dto;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import com.fieldops.fieldops_api.entities.ResponseType;
+
+public record TemplateItemResponseDTO(
+
+    Long id,
+
+    Long sectionId,
+
+    String label,
+
+    String description,
+
+    ResponseType responseType,
+
+    Boolean required,
+
+    Boolean requiresObservationOnNonconformity,
+
+    Boolean criticalOnNonconformity,
+
+    Boolean requiresEvidence,
+
+    Integer displayOrder,
+
+    LocalDateTime createdAt,
+
+    // Opções da seleção única (vazio para os demais tipos)
+    List<String> options
+) {
+}

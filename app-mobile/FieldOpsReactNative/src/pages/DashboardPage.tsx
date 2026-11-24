@@ -1,0 +1,252 @@
+
+import React from 'react';
+import { Text, View } from 'react-native';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock3,
+} from 'lucide-react-native';
+
+import { StatusChart, TrendChart } from '../components/MiniCharts';
+import { PageContent } from '../components/PageContent';
+import { Inspection, Palette, Status } from '../types';
+import { dashboardPageStyles as styles } from './DashboardPage.styles';
+
+type DashboardPageProps = {
+  colors: Palette;
+  inspections: Inspection[];
+  nonConformityCount: number;
+  embedded?: boolean;
+};
+
+const WEEK_DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+/**
+ * Quantidade de inspeções agendadas em cada um dos últimos 7 dias.
+ */
+function buildLastSevenDays(inspections: Inspection[]) {
+  const days: { day: string; total: number }[] = [];
+
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - offset);
+
+    const key = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+
+    days.push({
+      day: WEEK_DAY_LABELS[date.getDay()] ?? '',
+      total: inspections.filter(
+        (inspection) => (inspection.scheduledDate || '').slice(0, 10) === key,
+      ).length,
+    });
+  }
+
+  return days;
+}
+
+function isToday(date: string): boolean {
+  if (!date) return false;
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+
+  const todayISO = `${year}-${month}-${day}`;
+
+  // Data no formato YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss
+  if (date.startsWith(todayISO)) {
+    return true;
+  }
+
+  // Data no formato DD/MM/YYYY
+  const match = date.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+
+  if (match) {
+    return (
+      match[1] === day &&
+      match[2] === month &&
+      match[3] === String(year)
+    );
+  }
+
+  return false;
+}
+
+export function DashboardPage({
+  colors,
+  inspections,
+  nonConformityCount,
+  embedded = false,
+}: DashboardPageProps) {
+  const countByStatus = (status: Status) =>
+    inspections.filter((inspection) => inspection.status === status).length;
+
+  const todayCount = inspections.filter((inspection) =>
+    isToday(inspection.date),
+  ).length;
+
+  const inProgressCount = countByStatus('Em andamento');
+  const reviewCount = countByStatus('Aguardando revisão');
+  const approvedCount = countByStatus('Aprovada');
+
+  const cards = [
+    {
+      label: 'Inspeções hoje',
+      value: String(todayCount),
+      description: 'Agendadas para hoje',
+      icon: ClipboardCheck,
+      background: '#dbeafe',
+      foreground: '#2563eb',
+    },
+    {
+      label: 'Em andamento',
+      value: String(inProgressCount),
+      description: 'Inspeções em execução',
+      icon: Activity,
+      background: '#fef3c7',
+      foreground: '#d97706',
+    },
+    {
+      label: 'Aguardando revisão',
+      value: String(reviewCount),
+      description: 'Aguardando análise',
+      icon: Clock3,
+      background: '#ede9fe',
+      foreground: '#7c3aed',
+    },
+    {
+      label: 'Aprovadas',
+      value: String(approvedCount),
+      description: 'Inspeções aprovadas',
+      icon: CheckCircle2,
+      background: '#dcfce7',
+      foreground: '#16a34a',
+    },
+    {
+      label: 'Não conformidades',
+      value: String(nonConformityCount),
+      description: 'Itens marcados como não conformes',
+      icon: AlertTriangle,
+      background: '#fee2e2',
+      foreground: '#dc2626',
+    },
+  ];
+
+  const statusData = [
+    { name: 'Agendada', value: countByStatus('Agendada') },
+    { name: 'Em andamento', value: inProgressCount },
+    { name: 'Concluída', value: countByStatus('Concluída') },
+    { name: 'Aguardando revisão', value: reviewCount },
+    { name: 'Aprovada', value: approvedCount },
+    { name: 'Reprovada', value: countByStatus('Reprovada') },
+    { name: 'Cancelada', value: countByStatus('Cancelada') },
+  ];
+
+  return (
+    <PageContent embedded={embedded} contentContainerStyle={styles.content}>
+      <View style={styles.heading}>
+        <View style={styles.headingText}>
+          <Text style={styles.eyebrow}>VISÃO OPERACIONAL</Text>
+
+          <Text style={[styles.title, { color: colors.text }]}>
+            Visão geral das operações
+          </Text>
+
+          <Text style={[styles.subtitle, { color: colors.muted }]}>
+            Acompanhe a execução das inspeções em campo em tempo real.
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.stats}>
+        {cards.map((card) => {
+          const Icon = card.icon;
+
+          return (
+            <View
+              key={card.label}
+              style={[
+                styles.stat,
+                {
+                  backgroundColor: colors.panel,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <View style={styles.statTop}>
+                <Text style={[styles.statLabel, { color: colors.muted }]}>
+                  {card.label}
+                </Text>
+
+                <View
+                  style={[
+                    styles.statIcon,
+                    { backgroundColor: card.background },
+                  ]}
+                >
+                  <Icon size={18} color={card.foreground} />
+                </View>
+              </View>
+
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {card.value}
+              </Text>
+
+              <Text style={[styles.delta, { color: colors.muted }]}>
+                {card.description}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      <View
+        style={[
+          styles.panel,
+          {
+            backgroundColor: colors.panel,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.panelTitle, { color: colors.text }]}>
+          Inspeções por período
+        </Text>
+
+        <Text style={[styles.panelSubtitle, { color: colors.muted }]}>
+          Inspeções agendadas nos últimos 7 dias
+        </Text>
+
+        <TrendChart colors={colors} data={buildLastSevenDays(inspections)} />
+      </View>
+
+      <View
+        style={[
+          styles.panel,
+          {
+            backgroundColor: colors.panel,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.panelTitle, { color: colors.text }]}>
+          Inspeções por status
+        </Text>
+
+        <Text style={[styles.panelSubtitle, { color: colors.muted }]}>
+          Distribuição atual
+        </Text>
+
+        <StatusChart colors={colors} data={statusData} />
+      </View>
+
+    </PageContent>
+  );
+}
