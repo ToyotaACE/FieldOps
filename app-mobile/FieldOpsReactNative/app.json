@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "FieldOps",
@@ -11,9 +12,9 @@
     "android": {
       "package": "com.fieldops.mobile",
       "permissions": [
-        "CAMERA",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "ios": {
@@ -42,6 +43,11 @@
         }
       ],
       "expo-status-bar"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1d3ed5d5-418f-47a5-ab5c-bbc39d905d97"
+      }
+    }
   }
 }
